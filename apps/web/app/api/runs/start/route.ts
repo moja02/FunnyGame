@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { serverRegistry } from '@funnygame/game-core';
+import '@funnygame/game-color-trap';
 import { getSupabaseServerClient } from '@/lib/supabase-server';
 
 export async function POST(req: Request) {

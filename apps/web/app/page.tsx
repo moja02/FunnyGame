@@ -132,9 +132,15 @@ export default function HomePage() {
                 <p className="text-xs text-slate-300 leading-relaxed">{cat.description}</p>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-white/10 flex justify-between items-center">
-                <span className="text-xs text-amber-300/80 font-bold">تدرّج من 1 لـ 70+</span>
-                <span className="text-xs text-slate-400 font-bold">قيد التركيب ⏳</span>
+              <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs font-bold">
+                <span className="text-amber-300/80">تدرّج من 1 لـ 70+</span>
+                {cat.id === 'speed' ? (
+                  <Link href="/play/color-trap" className="px-2 py-1 rounded bg-rose-500 text-white text-[11px] hover:bg-rose-600 transition-colors">
+                    ألوان خادعة ⚡
+                  </Link>
+                ) : (
+                  <span className="text-slate-400">قيد التركيب ⏳</span>
+                )}
               </div>
             </div>
           ))}
