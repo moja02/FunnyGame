@@ -323,7 +323,9 @@ export class TimeDuelView {
     profileService.recordMatch({
       gameId: 'time-duel',
       won: result.winner === 'p1',
-      diff: result.diff1
+      diff: result.diff1,
+      target: result.currentTarget,
+      stopped: this.p1Stop
     });
 
     setTimeout(() => {
