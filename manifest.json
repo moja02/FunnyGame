@@ -1,0 +1,36 @@
+{
+  "name": "FunnyGame | منصة ألعاب التحدي والذكاء",
+  "short_name": "FunnyGame",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d071a",
+  "theme_color": "#0d071a",
+  "description": "ألعاب التحدي وسرعة البديهة والذكاء للجوال - تحدي الفارق الزمني لشخصين ومزيد من الألعاب الحماسية",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "icons/Icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/Icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/Icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/Icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
