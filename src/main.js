@@ -198,7 +198,15 @@ class Application {
   }
 }
 
-// Bootstrap application on DOM load
-window.addEventListener('DOMContentLoaded', () => {
-  window.app = new Application();
-});
+// Bootstrap application immediately or on DOM load
+function startApp() {
+  if (!window.app) {
+    window.app = new Application();
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startApp);
+} else {
+  startApp();
+}
