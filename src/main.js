@@ -77,7 +77,16 @@ class Application {
     const btnPlay = document.getElementById('btn-hero-play');
     if (btnPlay) btnPlay.onclick = () => navigator.navigateTo('catalog');
 
-    // 2. Profile Button -> Open Profile
+    // 2. Leaderboard Button -> Open Profile & Leaderboard
+    const btnLeaderboard = document.getElementById('btn-hero-leaderboard');
+    if (btnLeaderboard) {
+      btnLeaderboard.onclick = () => {
+        this.profileView.render();
+        navigator.navigateTo('profile');
+      };
+    }
+
+    // 3. Profile Button -> Open Profile
     const btnProfile = document.getElementById('btn-hero-profile');
     if (btnProfile) {
       btnProfile.onclick = () => {

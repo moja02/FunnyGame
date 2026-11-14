@@ -30,6 +30,9 @@
         <span id="header-title" style="font-weight: 900; font-size: 1.1rem; color: #feca57;">
           FunnyGame ⚡
         </span>
+        <span id="cloud-status-badge" class="badge-pill" style="font-size: 0.65rem; background: rgba(46, 204, 113, 0.15); color: #2ecc71; border-color: rgba(46, 204, 113, 0.4); padding: 2px 8px;">
+          🟢 متصل بالسحابة
+        </span>
       </div>
 
       <div style="display: flex; align-items: center; gap: 8px;">
@@ -86,11 +89,16 @@
         </button>
       </div>
 
-      <!-- 4 Hero Navigation Buttons -->
+      <!-- 5 Hero Navigation Buttons -->
       <div style="width: 100%;">
         <button id="btn-hero-play" class="arcade-btn menu-main-btn btn-play-hero">
           <span>🎮</span>
           <span>الدخول للألعاب</span>
+        </button>
+
+        <button id="btn-hero-leaderboard" class="arcade-btn menu-main-btn" style="background: linear-gradient(135deg, #feca57 0%, #ff9f43 100%); color: #1a0f00; box-shadow: 0 7px 0 #d63031; margin-bottom: 14px;">
+          <span>🏆</span>
+          <span>لوحة الشرف العالمية</span>
         </button>
 
         <button id="btn-hero-profile" class="arcade-btn menu-main-btn btn-profile-hero">
@@ -355,11 +363,13 @@
   <!-- Modular Application Entry Point -->
   <script type="module" src="src/main.js"></script>
 
-  <!-- Service Worker Registration for PWA -->
+  <!-- Service Worker Registration for PWA with Force Invalidation -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
+        navigator.serviceWorker.register('./sw.js?v=2').then((reg) => {
+          reg.update();
+        }).catch(() => {});
       });
     }
   </script>
