@@ -1,0 +1,388 @@
+/* ==========================================================================
+   FunnyGame - Master Arcade Theme & Stylesheet
+   Architecture: Clean, Modular CSS
+   ========================================================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+:root {
+  --bg-dark: #0d071a;
+  --card-bg: #1c1136;
+  --card-border: rgba(255, 255, 255, 0.1);
+  --p1-color: #ff4757;
+  --p1-shadow: #b32e3b;
+  --p2-color: #00d2d3;
+  --p2-shadow: #008f90;
+  --accent-yellow: #feca57;
+  --accent-purple: #5f27cd;
+  --accent-green: #2ecc71;
+  --font-arabic: 'Tajawal', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-game: 'Fredoka', 'Tajawal', sans-serif;
+}
+
+body {
+  font-family: var(--font-arabic);
+  background-color: #05020a;
+  color: #ffffff;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Container: Desktop Phone Simulator vs Mobile Fullscreen */
+#app-wrapper {
+  width: 100%;
+  height: 100%;
+  max-width: 440px;
+  max-height: 900px;
+  background: var(--bg-dark);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.95), 0 0 40px rgba(95, 39, 205, 0.3);
+  transition: all 0.2s ease;
+}
+
+@media (min-width: 600px) and (min-height: 650px) {
+  #app-wrapper.simulator-mode {
+    height: 94vh;
+    border-radius: 46px;
+    border: 10px solid #261747;
+    box-shadow: 0 0 0 3px #110826, 0 25px 60px rgba(0, 0, 0, 0.95), 0 0 60px rgba(95, 39, 205, 0.4);
+  }
+}
+
+#app-wrapper.fullscreen-mode {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+/* Top Navigation Header */
+header {
+  height: 54px;
+  background: rgba(13, 7, 26, 0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 30;
+  flex-shrink: 0;
+}
+
+.btn-header {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: 0.1s;
+}
+
+.btn-header:active {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Arcade Action Buttons */
+.arcade-btn {
+  border: none;
+  outline: none;
+  cursor: pointer;
+  font-weight: 900;
+  border-radius: 22px;
+  transition: all 0.08s cubic-bezier(0.1, 0.7, 0.1, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+  font-family: var(--font-arabic);
+}
+
+.arcade-btn:active:not(:disabled) {
+  transform: translateY(4px);
+}
+
+/* Main Menu Hero Buttons */
+.menu-main-btn {
+  width: 100%;
+  height: 64px;
+  font-size: 1.25rem;
+  letter-spacing: 0.5px;
+  border-radius: 20px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.btn-play-hero {
+  background: linear-gradient(135deg, #feca57 0%, #ff9f43 100%);
+  color: #1a0f00;
+  text-shadow: none;
+  box-shadow: 0 7px 0 #ee5253, 0 12px 25px rgba(254, 202, 87, 0.35);
+}
+.btn-play-hero:active {
+  box-shadow: 0 2px 0 #ee5253, 0 5px 12px rgba(254, 202, 87, 0.35);
+}
+
+.btn-profile-hero {
+  background: linear-gradient(135deg, #ff9ff3 0%, #a55eea 100%);
+  box-shadow: 0 7px 0 #8854d0, 0 12px 25px rgba(165, 94, 234, 0.35);
+}
+.btn-profile-hero:active {
+  box-shadow: 0 2px 0 #8854d0, 0 5px 12px rgba(165, 94, 234, 0.35);
+}
+
+.btn-settings-hero {
+  background: linear-gradient(135deg, #5f27cd 0%, #341f97 100%);
+  box-shadow: 0 7px 0 #221464, 0 12px 25px rgba(95, 39, 205, 0.3);
+}
+.btn-settings-hero:active {
+  box-shadow: 0 2px 0 #221464, 0 5px 12px rgba(95, 39, 205, 0.3);
+}
+
+.btn-instructions-hero {
+  background: linear-gradient(135deg, #0abde3 0%, #10ac84 100%);
+  box-shadow: 0 7px 0 #008f90, 0 12px 25px rgba(10, 189, 227, 0.3);
+}
+.btn-instructions-hero:active {
+  box-shadow: 0 2px 0 #008f90, 0 5px 12px rgba(10, 189, 227, 0.3);
+}
+
+/* Massive STOP Slam Buttons */
+.slam-button {
+  width: 90%;
+  max-width: 290px;
+  height: 110px;
+  font-size: 2.1rem;
+  font-weight: 900;
+  border-radius: 30px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.slam-p1 {
+  background: linear-gradient(135deg, #ff4757 0%, #ee5253 100%);
+  box-shadow: 0 10px 0 var(--p1-shadow), 0 15px 30px rgba(255, 71, 87, 0.4);
+}
+.slam-p1:active:not(:disabled) {
+  transform: translateY(8px);
+  box-shadow: 0 2px 0 var(--p1-shadow), 0 5px 15px rgba(255, 71, 87, 0.4);
+}
+
+.slam-p2 {
+  background: linear-gradient(135deg, #00d2d3 0%, #0abde3 100%);
+  box-shadow: 0 10px 0 var(--p2-shadow), 0 15px 30px rgba(0, 210, 211, 0.4);
+}
+.slam-p2:active:not(:disabled) {
+  transform: translateY(8px);
+  box-shadow: 0 2px 0 var(--p2-shadow), 0 5px 15px rgba(0, 210, 211, 0.4);
+}
+
+.slam-button:disabled {
+  opacity: 0.8;
+  cursor: default;
+  transform: translateY(6px);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Square Game Card Grid */
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.square-game-card {
+  aspect-ratio: 1 / 1;
+  border-radius: 24px;
+  background: linear-gradient(145deg, #231642 0%, #160c2b 100%);
+  border: 2px solid rgba(255, 255, 255, 0.09);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 10px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.15s ease;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.square-game-card:hover, .square-game-card:active {
+  transform: translateY(-2px);
+  border-color: rgba(254, 202, 87, 0.5);
+  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.6), 0 0 20px rgba(254, 202, 87, 0.2);
+}
+
+.square-game-card.active-card {
+  border: 2px solid #feca57;
+  background: linear-gradient(145deg, #321852 0%, #1b0d36 100%);
+}
+
+.square-game-card.locked-card {
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.badge-card {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Split Screen Zones for Duel */
+.player-zone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  position: relative;
+}
+
+.zone-p1 {
+  background: radial-gradient(circle at center, #2b1129 0%, #150b1d 100%);
+}
+
+.zone-p2 {
+  background: radial-gradient(circle at center, #0e2936 0%, #0a1721 100%);
+}
+
+.zone-p2.flipped {
+  transform: rotate(180deg);
+}
+
+.center-bar {
+  height: 48px;
+  background: #080410;
+  border-top: 2px solid #2c1a4b;
+  border-bottom: 2px solid #2c1a4b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 10;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+  flex-shrink: 0;
+}
+
+.digital-num {
+  font-family: var(--font-game);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1.5px;
+  font-weight: 900;
+}
+
+.badge-pill {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Screen Views */
+.view-screen {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Custom range sliders in Settings */
+.custom-range {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 10px;
+  border-radius: 5px;
+  background: #2a1b49;
+  outline: none;
+}
+.custom-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #feca57;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(254, 202, 87, 0.8);
+}
+
+/* Animations */
+@keyframes popIn {
+  0% { transform: scale(0.85); opacity: 0; }
+  80% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.pop-in {
+  animation: popIn 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+.pulse-logo {
+  animation: pulseGlow 2.5s infinite ease-in-out;
+}
+
+#confetti-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 60;
+}
