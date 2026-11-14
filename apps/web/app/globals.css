@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-tajawal: 'Tajawal', sans-serif;
+  --font-lalezar: 'Lalezar', cursive;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+body {
+  background-color: #05020a;
+  color: #ffffff;
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-family: var(--font-tajawal), sans-serif;
+}
+
+h1, h2, h3, .font-heading {
+  font-family: var(--font-lalezar), sans-serif;
+}

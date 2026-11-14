@@ -8,11 +8,29 @@ Thumbs.db
 *.swp
 *.swo
 
-# Node / Build artifacts
+# Node & Package Managers
 node_modules/
+.pnpm-store/
 dist/
 build/
 *.log
+
+# Next.js
+.next/
+out/
+
+# Environment Variables (Keep secrets secure!)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Testing & Coverage
+coverage/
+.playwright/
+test-results/
 
 # Vercel
 .vercel
