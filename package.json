@@ -1,9 +1,0 @@
-{
-  "name": "funnygame",
-  "version": "2.0.0",
-  "private": true,
-  "description": "FunnyGame Web Arcade Platform",
-  "scripts": {
-    "build": "echo 'Static assets ready'"
-  }
-}
