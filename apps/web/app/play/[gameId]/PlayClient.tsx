@@ -20,7 +20,8 @@ import {
   ComboMeter,
   StageBanner,
   ResultScreen,
-  sound
+  sound,
+  haptics
 } from '@funnygame/ui';
 import '@funnygame/game-color-trap';
 
@@ -68,6 +69,14 @@ export default function PlayClient({ gameId }: PlayClientProps) {
   const streakRef = useRef(0);
   const questionStartTimeRef = useRef(0);
   const animFrameRef = useRef<number | null>(null);
+
+  // Synchronized refs for stale-free loop execution
+  const heartsRef = useRef(3);
+  const scoreRef = useRef(0);
+  const stageRef = useRef(1);
+  const currentQuestionRef = useRef<Question<any> | null>(null);
+  const isLockedRef = useRef(false);
+  const handleAnswerRef = useRef<(answer: any | null) => void>(() => {});
 
   // Load personal best on mount
   useEffect(() => {
@@ -125,15 +134,18 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     const logic = module.logic;
     const currentCorrect = correctCountRef.current;
     const currentStage = 1 + Math.floor(currentCorrect / logic.questionsPerStage);
+    stageRef.current = currentStage;
     setStage(currentStage);
 
     const cfg = logic.stageConfig(currentStage);
     const q = logic.generate(rngRef.current, cfg, qIndexRef.current);
 
+    currentQuestionRef.current = q;
     setCurrentQuestion(q);
     setTimeLimitMs(q.timeLimitMs);
     setRemainingMs(q.timeLimitMs);
     setLastVerdict(null);
+    isLockedRef.current = false;
     setIsLocked(false);
 
     const now = Date.now();
@@ -151,8 +163,10 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       setRemainingMs(left);
 
       if (left <= 0) {
-        // Timeout
-        handleAnswer(null);
+        // Timeout reached! Deduct heart & feedback
+        if (!isLockedRef.current) {
+          handleAnswerRef.current(null);
+        }
       } else {
         animFrameRef.current = requestAnimationFrame(tick);
       }
@@ -163,7 +177,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
 
   // Answer handler
   const handleAnswer = useCallback((answer: any | null) => {
-    if (!module || !currentQuestion || isLocked) return;
+    const q = currentQuestionRef.current;
+    if (!module || !q || isLockedRef.current) return;
+    isLockedRef.current = true;
     setIsLocked(true);
 
     if (animFrameRef.current) {
@@ -174,72 +190,84 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     const logic = module.logic;
     const now = Date.now();
     const reactionTimeMs = Math.min(
-      currentQuestion.timeLimitMs,
+      q.timeLimitMs,
       Math.max(10, now - questionStartTimeRef.current)
     );
 
     // Record answer
     answersRef.current.push({
-      questionIndex: currentQuestion.index,
-      stage,
+      questionIndex: q.index,
+      stage: stageRef.current,
       answer,
       reactionTimeMs,
       clientTimestamp: now
     });
 
-    const verdict = logic.evaluate(currentQuestion, answer);
+    const verdict = logic.evaluate(q, answer);
     setLastVerdict(verdict);
 
-    let nextHearts = hearts;
-    let nextScore = score;
-
     if (verdict.correct) {
+      sound.correct();
+      haptics.light();
       correctCountRef.current += 1;
       streakRef.current += 1;
       setCombo(streakRef.current);
 
-      const remMs = Math.max(0, currentQuestion.timeLimitMs - reactionTimeMs);
+      const remMs = Math.max(0, q.timeLimitMs - reactionTimeMs);
       const earned = calculateQuestionScore(
         logic.basePoints,
-        stage,
+        stageRef.current,
         remMs,
-        currentQuestion.timeLimitMs,
+        q.timeLimitMs,
         streakRef.current
       );
-      nextScore += earned;
-      setScore(nextScore);
+      scoreRef.current += earned;
+      setScore(scoreRef.current);
     } else {
+      // Wrong answer OR timeout: decrement hearts, sound & haptics!
+      sound.wrong();
+      haptics.error();
       streakRef.current = 0;
       setCombo(0);
-      nextHearts = Math.max(0, hearts - verdict.heartCost);
-      setHearts(nextHearts);
+      heartsRef.current = Math.max(0, heartsRef.current - verdict.heartCost);
+      setHearts(heartsRef.current);
     }
 
     // Step to next question or trigger gameover
     setTimeout(() => {
-      if (nextHearts <= 0) {
+      if (heartsRef.current <= 0) {
         sound.gameOver();
         setGameState('gameover');
-        submitRun(nextScore);
+        submitRun(scoreRef.current);
       } else {
         qIndexRef.current += 1;
         loadQuestion();
       }
-    }, 180);
-  }, [module, currentQuestion, isLocked, hearts, score, stage, submitRun, loadQuestion]);
+    }, 220);
+  }, [module, submitRun, loadQuestion]);
+
+  // Keep ref synchronized
+  useEffect(() => {
+    handleAnswerRef.current = handleAnswer;
+  }, [handleAnswer]);
 
   // Initiate new game
   const handleStartGame = async () => {
     // Reset metrics
+    scoreRef.current = 0;
     setScore(0);
+    heartsRef.current = 3;
     setHearts(3);
+    stageRef.current = 1;
     setStage(1);
+    streakRef.current = 0;
     setCombo(0);
+    isLockedRef.current = false;
+    setIsLocked(false);
     setLastVerdict(null);
     answersRef.current = [];
     correctCountRef.current = 0;
     qIndexRef.current = 0;
-    streakRef.current = 0;
 
     // Fetch start seed from server
     let generatedSeed = Math.floor(Math.random() * 2147483647) + 1;

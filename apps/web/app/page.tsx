@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BottomNav } from './components/BottomNav';
 
 interface GameCategory {
   id: string;
@@ -109,12 +110,55 @@ export default function HomePage() {
         </Link>
       </div>
 
+      {/* Featured Game & Games Library Hub Entry */}
+      <div className="mb-5 p-4 rounded-3xl bg-gradient-to-r from-rose-950/60 via-purple-950/50 to-amber-950/50 border-2 border-rose-500/50 shadow-xl relative overflow-hidden">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">
+                لعبة متاحة توا 🔥
+              </span>
+              <span className="text-xs text-amber-300 font-bold">السرعة والتركيز</span>
+            </div>
+            <h2 className="text-lg font-black text-white">ألوان خادعة 🎨</h2>
+            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+              اكبح ردة فعلك التلقائية واضغط الزر حسب المطلوب قبل ما ينفد الوقت!
+            </p>
+          </div>
+          <div className="text-3xl p-2.5 bg-rose-500/20 rounded-2xl border border-rose-500/30">🎨</div>
+        </div>
+
+        <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+          <Link
+            href="/play/color-trap"
+            className="flex-1 py-2.5 px-4 bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-slate-950 font-black rounded-xl text-center text-xs shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-1.5"
+          >
+            <span>العب ألوان خادعة</span>
+            <span>⚡</span>
+          </Link>
+
+          <Link
+            href="/games"
+            className="py-2.5 px-4 bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold rounded-xl text-xs flex items-center gap-1 transition-colors"
+          >
+            <span>كل الألعاب (16)</span>
+            <span>🎮</span>
+          </Link>
+        </div>
+      </div>
+
       {/* Abilities Section */}
       <div className="mb-4">
-        <h2 className="text-base font-black text-slate-200 mb-2 flex items-center gap-2">
-          <span>🧠</span>
-          <span>القدرات العقلية الأربع (16 لعبة)</span>
-        </h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-base font-black text-slate-200 flex items-center gap-2">
+            <span>🧠</span>
+            <span>القدرات العقلية الأربع (16 لعبة)</span>
+          </h2>
+          <Link href="/games" className="text-xs text-amber-400 font-bold hover:underline flex items-center gap-0.5">
+            <span>عرض الكل</span>
+            <span>◀</span>
+          </Link>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {categories.map((cat) => (
             <div
@@ -135,11 +179,13 @@ export default function HomePage() {
               <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs font-bold">
                 <span className="text-amber-300/80">تدرّج من 1 لـ 70+</span>
                 {cat.id === 'speed' ? (
-                  <Link href="/play/color-trap" className="px-2 py-1 rounded bg-rose-500 text-white text-[11px] hover:bg-rose-600 transition-colors">
+                  <Link href="/play/color-trap" className="px-2.5 py-1 rounded-lg bg-rose-500 text-white text-[11px] font-black hover:bg-rose-600 transition-colors">
                     ألوان خادعة ⚡
                   </Link>
                 ) : (
-                  <span className="text-slate-400">قيد التركيب ⏳</span>
+                  <Link href="/games" className="text-slate-400 hover:text-slate-200 text-[11px]">
+                    قيد التركيب ⏳
+                  </Link>
                 )}
               </div>
             </div>
@@ -148,24 +194,7 @@ export default function HomePage() {
       </div>
 
       {/* Bottom Sticky Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-[480px] lg:max-w-6xl mx-auto bg-slate-950/90 backdrop-blur border-t border-white/10 px-4 py-2.5 flex items-center justify-around z-50">
-        <Link href="/" className="flex flex-col items-center gap-0.5 text-amber-400 text-xs font-bold">
-          <span className="text-lg">🎮</span>
-          <span>الرئيسية</span>
-        </Link>
-        <Link href="/daily" className="flex flex-col items-center gap-0.5 text-slate-400 hover:text-white text-xs font-bold">
-          <span className="text-lg">🎯</span>
-          <span>اليومي</span>
-        </Link>
-        <Link href="/league" className="flex flex-col items-center gap-0.5 text-slate-400 hover:text-white text-xs font-bold">
-          <span className="text-lg">🏆</span>
-          <span>الدوري</span>
-        </Link>
-        <Link href="/profile" className="flex flex-col items-center gap-0.5 text-slate-400 hover:text-white text-xs font-bold">
-          <span className="text-lg">👤</span>
-          <span>حسابي</span>
-        </Link>
-      </nav>
+      <BottomNav />
     </main>
   );
 }

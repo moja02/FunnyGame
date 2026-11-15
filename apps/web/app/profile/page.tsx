@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { BottomNav } from '../components/BottomNav';
 
 const avatars = ['⚡', '👑', '🎯', '🦁', '🤖', '🐱', '🦊', '🚀', '🔥', '💎', '🌟', '🏆'];
 
@@ -139,6 +140,9 @@ export default function ProfilePage() {
           🌐 ربط Google
         </button>
       </div>
+
+      {/* Bottom Sticky Navigation Bar */}
+      <BottomNav />
     </main>
   );
 }

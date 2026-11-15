@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BottomNav } from '../components/BottomNav';
 
 export default function DailyChallengePage() {
   return (
@@ -53,6 +54,9 @@ export default function DailyChallengePage() {
           يبدأ التحدي فور تركيب أول ألعاب المنظومة!
         </div>
       </div>
+
+      {/* Bottom Sticky Navigation Bar */}
+      <BottomNav />
     </main>
   );
 }

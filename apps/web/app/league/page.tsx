@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BottomNav } from '../components/BottomNav';
 
 export default function LeaguePage() {
   return (
@@ -52,6 +53,9 @@ export default function LeaguePage() {
           يبدأ أول موسم للدوري مع إطلاق أول الألعاب التنافسية!
         </div>
       </div>
+
+      {/* Bottom Sticky Navigation Bar */}
+      <BottomNav />
     </main>
   );
 }
