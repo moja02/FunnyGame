@@ -25,6 +25,12 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+-- Ensure columns exist if table was already created earlier
+alter table public.profiles add column if not exists city_id text default null;
+alter table public.profiles add column if not exists city_name text default null;
+alter table public.profiles add column if not exists city_updated_at timestamptz default null;
+alter table public.profiles add column if not exists friends jsonb not null default '[]'::jsonb;
+
 -- Profiles RLS
 alter table public.profiles enable row level security;
 
