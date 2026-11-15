@@ -159,7 +159,8 @@ create policy "Only service_role can manage leagues"
 -- ------------------------------------------------------------------------------
 
 -- Global Game High Scores
-create or replace view public.view_leaderboard_global as
+drop view if exists public.view_leaderboard_global cascade;
+create view public.view_leaderboard_global as
 select
   gr.game_id,
   p.id as user_id,
