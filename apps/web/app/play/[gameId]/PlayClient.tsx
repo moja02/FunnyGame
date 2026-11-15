@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import {
   clientRegistry,
   createRng,
@@ -113,6 +114,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
 
     // Submit verified run to server if registered cloud user
     if (!profile.isGuest && user?.id) {
+      // 1. Try server API route (when running with Next server)
       try {
         await fetch('/api/runs/submit', {
           method: 'POST',
@@ -126,8 +128,33 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             submittedAt
           })
         });
+      } catch {
+        // Expected when statically hosted on GitHub Pages
+      }
+
+      // 2. Direct Supabase sync (for static GitHub Pages hosting)
+      try {
+        const supabase = getSupabaseBrowserClient();
+        await supabase.from('game_runs').insert({
+          user_id: user.id,
+          game_id: gameId,
+          mode: 'free',
+          seed: seedRef.current,
+          score: finalScore,
+          stage_reached: stageRef.current,
+          answers_json: answersRef.current,
+          validated: true,
+        });
+
+        // Also update profiles table
+        await supabase
+          .from('profiles')
+          .update({
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id);
       } catch (err) {
-        console.warn('Run submit notice:', err);
+        console.warn('Client Supabase run sync notice:', err);
       }
     }
   }, [gameId, personalBest, profile.isGuest, user?.id]);

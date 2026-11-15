@@ -8,15 +8,30 @@ import { useAuth } from '@/lib/auth-context';
 const avatars = ['⚡', '👑', '🎯', '🦁', '🤖', '🐱', '🦊', '🚀', '🔥', '💎', '🌟', '🏆'];
 
 export default function ProfilePage() {
-  const { user, profile, signInWithGoogle, signOut, updateProfile } = useAuth();
+  const {
+    user,
+    profile,
+    signInWithGoogle,
+    signInWithPassword,
+    signUpWithPassword,
+    signOut,
+    updateProfile,
+  } = useAuth();
 
   const [nickname, setNickname] = useState(profile.nickname);
   const [selectedAvatar, setSelectedAvatar] = useState(profile.avatar);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [isSigningIn, setIsSigningIn] = useState(false);
+
+  // Auth form state
+  const [authMethod, setAuthMethod] = useState<'google' | 'email'>('google');
+  const [emailTab, setEmailTab] = useState<'register' | 'login'>('register');
+  const [emailInput, setEmailInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [authSuccess, setAuthSuccess] = useState<string | null>(null);
 
   // Sync inputs with profile when profile changes
   useEffect(() => {
@@ -35,18 +50,60 @@ export default function ProfilePage() {
   };
 
   const handleGoogleSignIn = async () => {
-    setIsSigningIn(true);
+    setIsSubmittingAuth(true);
     setAuthNotice(null);
+    setAuthSuccess(null);
     const { error } = await signInWithGoogle();
-    setIsSigningIn(false);
+    setIsSubmittingAuth(false);
 
     if (error) {
       console.warn('Google sign-in attempt notice:', error.message);
-      // Friendly Libyan explanation for user
-      if (error.message.includes('not enabled') || error.message.includes('provider')) {
+      if (error.message.includes('missing OAuth secret') || error.message.includes('validation_failed')) {
+        setAuthNotice(
+          'مزوّد Google مفعل في Supabase لكن يحتاج Client ID و Client Secret من Google Cloud Console. يمكنك حالياً استخدام تسجيل البريد وكلمة المرور بالأسفل فوراً!'
+        );
+      } else if (error.message.includes('not enabled') || error.message.includes('provider')) {
         setAuthNotice('مزوّد قوقل يحتاج تفعيل في لوحة Supabase (Authentication -> Providers -> Google).');
       } else {
         setAuthNotice(`تعذر الاتصال بـ Google: ${error.message}`);
+      }
+    }
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailInput || !passwordInput) {
+      setAuthNotice('يرجى ملء جميع الحقول المطلوبة');
+      return;
+    }
+    if (passwordInput.length < 6) {
+      setAuthNotice('كلمة المرور يجب أن لا تقل عن 6 أحرف');
+      return;
+    }
+
+    setIsSubmittingAuth(true);
+    setAuthNotice(null);
+    setAuthSuccess(null);
+
+    if (emailTab === 'register') {
+      const res = await signUpWithPassword(emailInput, passwordInput, nickname);
+      setIsSubmittingAuth(false);
+      if (res.error) {
+        setAuthNotice(res.error.message);
+      } else if (res.needsEmailConfirmation) {
+        setAuthSuccess(
+          'تم إرسال رابط تأكيد إلى بريدك الإلكتروني! (ملاحظة: يمكنك تعطيل Confirm email في Supabase لجعل الدخول فورياً دون انتظار الإيميل).'
+        );
+      } else {
+        setAuthSuccess('أهلاً بك! تم إنشاء حسابك بنجاح وتم ربطه باللوحة 🟢');
+      }
+    } else {
+      const res = await signInWithPassword(emailInput, passwordInput);
+      setIsSubmittingAuth(false);
+      if (res.error) {
+        setAuthNotice(res.error.message);
+      } else {
+        setAuthSuccess('أهلاً بعودتك! تم تسجيل الدخول بنجاح 🟢');
       }
     }
   };
@@ -75,12 +132,12 @@ export default function ProfilePage() {
       <div className="p-5 bg-gradient-to-br from-purple-950/60 to-slate-950 border-2 border-amber-400/40 rounded-3xl text-center mb-4 shadow-xl relative">
         <div className="flex justify-between items-center text-xs mb-3">
           <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-slate-300 border border-white/10 font-bold">
-            انضم في: نوفمبر 2026
+            نوفمبر 2026
           </span>
 
           {profile.isGuest ? (
             <span className="px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40 font-black">
-              👤 وضع الزائر
+              👤 وضع الزائر (غير مسجل)
             </span>
           ) : (
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black flex items-center gap-1">
@@ -117,7 +174,9 @@ export default function ProfilePage() {
         {/* Player ID / Email */}
         <div className="flex flex-col items-center gap-1">
           {user?.email && (
-            <span className="text-[11px] font-bold text-slate-300 dir-ltr">{user.email}</span>
+            <span className="text-[11px] font-bold text-emerald-300 dir-ltr bg-emerald-950/40 px-2.5 py-0.5 rounded-lg border border-emerald-500/30">
+              {user.email}
+            </span>
           )}
           <div className="inline-flex items-center gap-1.5 bg-black/30 px-3 py-1 rounded-full text-xs text-slate-400">
             <span>
@@ -132,39 +191,140 @@ export default function ProfilePage() {
 
       {/* Cloud Account Sync Card / Sign Out */}
       {profile.isGuest ? (
-        <div className="p-4 bg-gradient-to-r from-amber-500/10 via-orange-950/20 to-slate-900 border-2 border-amber-400/40 rounded-2xl mb-4 shadow-lg">
-          <div className="flex items-start justify-between gap-3 mb-2">
-            <div>
-              <div className="text-sm font-black text-white flex items-center gap-1.5">
-                <span>🌐</span>
-                <span>سجل بحساب Google لتدخل لوحة الصدارة</span>
-              </div>
-              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                أنت الآن كـ <strong>زائر</strong>؛ نتيجتك تُحفظ على جهازك فقط. اربط حسابك لتوثيق أرقامك القياسية والمنافسة في الدوري الأسبوعي!
-              </p>
+        <div className="p-4 bg-gradient-to-r from-amber-500/10 via-orange-950/20 to-slate-900 border-2 border-amber-400/40 rounded-3xl mb-4 shadow-lg">
+          <div className="mb-3">
+            <div className="text-sm font-black text-white flex items-center gap-1.5">
+              <span>🏆</span>
+              <span>سجّل حسابك لتدخل لوحة الصدارة الرسمية</span>
             </div>
+            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+              أنت الآن تلعب في <strong>وضع الزائر</strong>؛ نتيجتك على جهازك فقط. اربط حسابك لتسجيل أرقامك القياسية والمنافسة مع الأبطال!
+            </p>
           </div>
 
+          {/* Feedback Messages */}
           {authNotice && (
-            <div className="p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-200 text-xs font-bold mb-3 leading-relaxed">
+            <div className="p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-200 text-xs font-bold mb-3 leading-relaxed">
               ⚠️ {authNotice}
             </div>
           )}
+          {authSuccess && (
+            <div className="p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-200 text-xs font-bold mb-3 leading-relaxed">
+              ✅ {authSuccess}
+            </div>
+          )}
 
-          <button
-            onClick={handleGoogleSignIn}
-            disabled={isSigningIn}
-            className="w-full py-3 px-4 bg-white hover:bg-slate-100 text-slate-950 rounded-xl font-black text-sm shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform cursor-pointer"
-          >
-            <span>🌐</span>
-            <span>{isSigningIn ? 'جاري الاتصال بـ Google...' : 'تسجيل الدخول عبر Google'}</span>
-          </button>
+          {/* Registration Method Switcher */}
+          <div className="flex bg-black/40 p-1 rounded-xl border border-white/10 mb-3">
+            <button
+              onClick={() => {
+                setAuthMethod('google');
+                setAuthNotice(null);
+              }}
+              className={`flex-1 py-1.5 text-xs font-black rounded-lg transition-all ${
+                authMethod === 'google'
+                  ? 'bg-amber-400 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              🌐 Google (ضغطة واحدة)
+            </button>
+            <button
+              onClick={() => {
+                setAuthMethod('email');
+                setAuthNotice(null);
+              }}
+              className={`flex-1 py-1.5 text-xs font-black rounded-lg transition-all ${
+                authMethod === 'email'
+                  ? 'bg-amber-400 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              ✉️ البريد الإلكتروني
+            </button>
+          </div>
+
+          {/* Google Flow */}
+          {authMethod === 'google' && (
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={isSubmittingAuth}
+              className="w-full py-3 px-4 bg-white hover:bg-slate-100 text-slate-950 rounded-xl font-black text-sm shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform cursor-pointer disabled:opacity-50"
+            >
+              <span>🌐</span>
+              <span>{isSubmittingAuth ? 'جاري الاتصال بـ Google...' : 'تسجيل الدخول عبر Google'}</span>
+            </button>
+          )}
+
+          {/* Email / Password Flow */}
+          {authMethod === 'email' && (
+            <form onSubmit={handleEmailAuth} className="flex flex-col gap-2.5">
+              <div className="flex gap-2 mb-1">
+                <button
+                  type="button"
+                  onClick={() => setEmailTab('register')}
+                  className={`text-xs font-bold pb-1 border-b-2 transition-all ${
+                    emailTab === 'register'
+                      ? 'border-amber-400 text-amber-300'
+                      : 'border-transparent text-slate-400 hover:text-white'
+                  }`}
+                >
+                  تسجيل حساب جديد
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEmailTab('login')}
+                  className={`text-xs font-bold pb-1 border-b-2 transition-all ${
+                    emailTab === 'login'
+                      ? 'border-amber-400 text-amber-300'
+                      : 'border-transparent text-slate-400 hover:text-white'
+                  }`}
+                >
+                  تسجيل الدخول
+                </button>
+              </div>
+
+              <input
+                type="email"
+                required
+                placeholder="البريد الإلكتروني (مثال: name@gmail.com)"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                className="w-full px-3 py-2 bg-black/50 border border-white/20 rounded-xl text-xs text-white outline-none focus:border-amber-400 dir-ltr text-right"
+              />
+
+              <input
+                type="password"
+                required
+                minLength={6}
+                placeholder="كلمة المرور (6 أحرف على الأقل)"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                className="w-full px-3 py-2 bg-black/50 border border-white/20 rounded-xl text-xs text-white outline-none focus:border-amber-400 dir-ltr text-right"
+              />
+
+              <button
+                type="submit"
+                disabled={isSubmittingAuth}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-amber-400 to-orange-500 hover:brightness-110 text-slate-950 font-black text-xs rounded-xl shadow active:scale-95 transition-all disabled:opacity-50"
+              >
+                {isSubmittingAuth
+                  ? 'جاري المعالجة... ⏳'
+                  : emailTab === 'register'
+                  ? 'إنشاء الحساب وتفعيل الصدارة 🚀'
+                  : 'تسجيل الدخول 🔑'}
+              </button>
+            </form>
+          )}
         </div>
       ) : (
         <div className="p-4 bg-slate-900/80 border border-emerald-500/30 rounded-2xl flex items-center justify-between mb-4 shadow">
           <div>
-            <div className="text-xs text-emerald-400 font-bold">حسابك مسجل وسحابي 🟢</div>
-            <div className="text-sm font-black text-white mt-0.5">أرقامك تدخل لوحة الصدارة تلقائياً</div>
+            <div className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
+              <span>🟢</span>
+              <span>حسابك مسجل وسحابي موثق</span>
+            </div>
+            <div className="text-xs text-slate-300 mt-0.5">أرقامك القياسية تظهر في لوحة الصدارة الرسمية</div>
           </div>
           <button
             onClick={signOut}

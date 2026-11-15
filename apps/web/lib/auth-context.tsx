@@ -18,6 +18,12 @@ interface AuthContextType {
   profile: PlayerProfile;
   isLoading: boolean;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
+  signInWithPassword: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUpWithPassword: (
+    email: string,
+    password: string,
+    nickname?: string
+  ) => Promise<{ error: Error | null; needsEmailConfirmation?: boolean }>;
   signOut: () => Promise<void>;
   updateProfile: (nickname: string, avatar: string) => Promise<boolean>;
 }
@@ -29,11 +35,25 @@ const DEFAULT_GUEST_PROFILE: PlayerProfile = {
   isGuest: true,
 };
 
+/**
+ * Strict validator to ensure only true cloud accounts are considered authenticated.
+ * Prevents anonymous sessions from ever leaking into registered status.
+ */
+export function isRealCloudUser(user: User | null): boolean {
+  if (!user) return false;
+  if (user.is_anonymous) return false;
+  if (user.app_metadata?.provider === 'anonymous') return false;
+  if (!user.email && (!user.identities || user.identities.length === 0)) return false;
+  return true;
+}
+
 const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: DEFAULT_GUEST_PROFILE,
   isLoading: true,
   signInWithGoogle: async () => ({ error: null }),
+  signInWithPassword: async () => ({ error: null }),
+  signUpWithPassword: async () => ({ error: null }),
   signOut: async () => {},
   updateProfile: async () => false,
 });
@@ -64,6 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (storedAv) guestAv = storedAv;
     }
 
+    // Default state MUST be guest
     setProfile({
       id: guestId,
       nickname: guestNick,
@@ -72,10 +93,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // 2. Check for active Supabase session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        handleUserAuthenticated(session.user);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user && isRealCloudUser(session.user)) {
+        await handleUserAuthenticated(session.user);
       } else {
+        // If an anonymous session exists from earlier runs, purge it immediately
+        if (session?.user && !isRealCloudUser(session.user)) {
+          try {
+            await supabase.auth.signOut();
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('sb-wiulcvbvpifpxmuxdtus-auth-token');
+            }
+          } catch {
+            // ignore
+          }
+        }
+        setUser(null);
+        setProfile({
+          id: guestId,
+          nickname: guestNick,
+          avatar: guestAv,
+          isGuest: true,
+        });
         setIsLoading(false);
       }
     });
@@ -84,8 +123,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        handleUserAuthenticated(session.user);
+      if (session?.user && isRealCloudUser(session.user)) {
+        await handleUserAuthenticated(session.user);
       } else {
         setUser(null);
         setProfile({
@@ -104,6 +143,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const handleUserAuthenticated = async (authUser: User) => {
+    if (!isRealCloudUser(authUser)) return;
+
     setUser(authUser);
     const supabase = getSupabaseBrowserClient();
 
@@ -126,11 +167,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       } else {
         // Fallback to user metadata or create
-        const metaNick = authUser.user_metadata?.full_name || authUser.user_metadata?.name || 'بطل التحدي';
+        const metaNick =
+          authUser.user_metadata?.nickname ||
+          authUser.user_metadata?.full_name ||
+          authUser.user_metadata?.name ||
+          'بطل التحدي';
+        const metaAvatar = authUser.user_metadata?.avatar || '👑';
+
         const newProfile: PlayerProfile = {
           id: authUser.id,
           nickname: metaNick.split(' ')[0] || 'بطل التحدي',
-          avatar: '👑',
+          avatar: metaAvatar,
           email: authUser.email,
           isGuest: false,
         };
@@ -160,10 +207,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithGoogle = async (): Promise<{ error: Error | null }> => {
     try {
       const supabase = getSupabaseBrowserClient();
-      const redirectUrl =
-        typeof window !== 'undefined'
-          ? `${window.location.origin}${window.location.pathname.startsWith('/FunnyGame') ? '/FunnyGame' : ''}/profile`
-          : undefined;
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const isGhPages = typeof window !== 'undefined' && window.location.pathname.startsWith('/FunnyGame');
+      const redirectUrl = `${origin}${isGhPages ? '/FunnyGame' : ''}/profile/`;
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -186,10 +232,81 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInWithPassword = async (email: string, password: string): Promise<{ error: Error | null }> => {
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) {
+        return { error: new Error(error.message) };
+      }
+
+      if (data.user) {
+        await handleUserAuthenticated(data.user);
+      }
+      return { error: null };
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error('تعذر تسجيل الدخول');
+      return { error };
+    }
+  };
+
+  const signUpWithPassword = async (
+    email: string,
+    password: string,
+    nickname?: string
+  ): Promise<{ error: Error | null; needsEmailConfirmation?: boolean }> => {
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const cleanNick = nickname?.trim() || profile.nickname || 'بطل التحدي';
+      const cleanAvatar = profile.avatar || '⚡';
+
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            nickname: cleanNick,
+            avatar: cleanAvatar,
+          },
+        },
+      });
+
+      if (error) {
+        if (error.message.includes('rate limit') || error.message.includes('429')) {
+          return {
+            error: new Error(
+              'تم تجاوز حد إرسال الرسائل في خادم Supabase. يمكنك تسجيل الدخول بكلمة المرور مباشرة بعد مراجعة إعداد تأكيد البريد.'
+            ),
+          };
+        }
+        return { error: new Error(error.message) };
+      }
+
+      // If Supabase has confirmed session already
+      if (data.session && data.user) {
+        await handleUserAuthenticated(data.user);
+        return { error: null, needsEmailConfirmation: false };
+      }
+
+      // If user needs email confirmation
+      return { error: null, needsEmailConfirmation: true };
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error('تعذر إنشاء الحساب');
+      return { error };
+    }
+  };
+
   const signOut = async () => {
     try {
       const supabase = getSupabaseBrowserClient();
       await supabase.auth.signOut();
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('sb-wiulcvbvpifpxmuxdtus-auth-token');
+      }
     } catch (err) {
       console.warn('Sign out notice:', err);
     } finally {
@@ -264,6 +381,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         isLoading,
         signInWithGoogle,
+        signInWithPassword,
+        signUpWithPassword,
         signOut,
         updateProfile,
       }}

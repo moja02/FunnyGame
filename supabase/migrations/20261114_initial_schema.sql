@@ -76,10 +76,10 @@ create policy "Game runs are viewable by owner and for leaderboards"
   on public.game_runs for select
   using (true);
 
--- Disallow public inserts directly from client (Only service_role can insert)
-create policy "Only service_role can insert verified runs"
+-- Allow authenticated players and service_role to insert runs
+create policy "Authenticated users can insert their runs"
   on public.game_runs for insert
-  with check (auth.role() = 'service_role');
+  with check (auth.role() = 'service_role' or auth.uid() = user_id);
 
 -- ------------------------------------------------------------------------------
 -- 3. Daily Challenges & Submissions Table
