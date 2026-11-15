@@ -49,43 +49,65 @@ export default function LeaderboardClient({ gameId }: { gameId: string }) {
           .limit(50);
 
         if (isMounted) {
+          let list: LeaderboardEntry[] = [];
+
           if (data && data.length > 0 && !error) {
-            const mapped: LeaderboardEntry[] = data.map((item, idx) => ({
+            list = data.map((item, idx) => ({
               rank: idx + 1,
               userId: item.user_id,
-              nickname: item.nickname || 'بطل التحدي',
+              nickname: item.nickname || 'guest-unknown',
               avatar: item.avatar || '⚡',
               city: item.city || undefined,
               bestScore: Number(item.best_score || 0),
               highestStage: Number(item.highest_stage || 1),
               isCurrentUser: item.user_id === profile.id,
             }));
-            setEntries(mapped);
-          } else if (gameId === 'time-duel') {
-            // For time-duel fallback: check leaderboard_top view if available
-            const { data: duelData } = await supabase
-              .from('leaderboard_top')
-              .select('*')
+          } else {
+            // 2. Direct profiles fallback where players have recorded scores
+            const { data: profData } = await supabase
+              .from('profiles')
+              .select('id, nickname, avatar, city, wins, total_games')
+              .gt('wins', 0)
+              .order('wins', { ascending: false })
               .limit(50);
 
-            if (duelData && duelData.length > 0) {
-              const mapped: LeaderboardEntry[] = duelData.map((item, idx) => ({
+            if (profData && profData.length > 0) {
+              list = profData.map((item, idx) => ({
                 rank: idx + 1,
                 userId: item.id,
-                nickname: item.nickname || 'بطل التحدي',
+                nickname: item.nickname || 'guest-unknown',
                 avatar: item.avatar || '⚡',
-                bestScore: Math.round(Math.max(0, (1 - Number(item.best_diff || 1)) * 10000)),
-                highestStage: Number(item.wins || 1),
+                city: item.city || undefined,
+                bestScore: Number(item.wins || 0),
+                highestStage: Math.max(1, Math.floor(Number(item.wins || 0) / 700)),
                 isCurrentUser: item.id === profile.id,
               }));
-              setEntries(mapped);
-            } else {
-              setEntries([]);
             }
-          } else {
-            // No fake bots - strictly real registered users only
-            setEntries([]);
           }
+
+          // 3. If current user is registered, has a verified run stored locally, ensure they appear
+          if (!profile.isGuest && typeof window !== 'undefined') {
+            const localPb = Number(localStorage.getItem(`fg_pb_${gameId}`) || 0);
+            const existsInList = list.some((e) => e.userId === profile.id);
+
+            if (localPb > 0 && !existsInList) {
+              list.push({
+                rank: list.length + 1,
+                userId: profile.id,
+                nickname: profile.nickname,
+                avatar: profile.avatar,
+                bestScore: localPb,
+                highestStage: Math.max(1, Math.floor(localPb / 700)),
+                isCurrentUser: true,
+              });
+              list.sort((a, b) => b.bestScore - a.bestScore);
+              list.forEach((e, idx) => {
+                e.rank = idx + 1;
+              });
+            }
+          }
+
+          setEntries(list);
         }
       } catch (err) {
         console.warn('Leaderboard fetch notice:', err);
@@ -101,7 +123,7 @@ export default function LeaderboardClient({ gameId }: { gameId: string }) {
     return () => {
       isMounted = false;
     };
-  }, [gameId, profile.id]);
+  }, [gameId, profile.id, profile.isGuest, profile.nickname, profile.avatar]);
 
   // Top 3 Podium
   const rank1 = entries.find((e) => e.rank === 1);

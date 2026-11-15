@@ -11,7 +11,7 @@ create extension if not exists "uuid-ossp";
 -- ------------------------------------------------------------------------------
 create table if not exists public.profiles (
   id uuid references auth.users(id) on delete cascade primary key,
-  nickname text not null default 'بطل التحدي',
+  nickname text not null default ('guest-' || substr(md5(random()::text), 1, 8)),
   avatar text not null default '⚡',
   city text default null,
   mind_score integer not null default 0 check (mind_score >= 0 and mind_score <= 1000),
@@ -40,7 +40,7 @@ begin
   insert into public.profiles (id, nickname, avatar)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'nickname', 'بطل التحدي'),
+    coalesce(new.raw_user_meta_data->>'nickname', ('guest-' || substr(md5(random()::text), 1, 8))),
     coalesce(new.raw_user_meta_data->>'avatar', '⚡')
   )
   on conflict (id) do nothing;

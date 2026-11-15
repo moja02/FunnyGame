@@ -133,8 +133,34 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       }
 
       // 2. Direct Supabase sync (for static GitHub Pages hosting)
+      const supabase = getSupabaseBrowserClient();
+
+      // ALWAYS update profiles with high score in wins column and total games count
       try {
-        const supabase = getSupabaseBrowserClient();
+        const { data: currentProf } = await supabase
+          .from('profiles')
+          .select('total_games, wins')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        const currentTotal = Number(currentProf?.total_games || 0);
+        const currentBest = Number(currentProf?.wins || 0);
+        const newBest = Math.max(currentBest, finalScore);
+
+        await supabase
+          .from('profiles')
+          .update({
+            total_games: currentTotal + 1,
+            wins: newBest,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id);
+      } catch (profErr) {
+        console.warn('Profile score sync notice:', profErr);
+      }
+
+      // Also try game_runs if table is created
+      try {
         await supabase.from('game_runs').insert({
           user_id: user.id,
           game_id: gameId,
@@ -145,16 +171,8 @@ export default function PlayClient({ gameId }: PlayClientProps) {
           answers_json: answersRef.current,
           validated: true,
         });
-
-        // Also update profiles table
-        await supabase
-          .from('profiles')
-          .update({
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id);
-      } catch (err) {
-        console.warn('Client Supabase run sync notice:', err);
+      } catch {
+        // game_runs table optional until migration is applied
       }
     }
   }, [gameId, personalBest, profile.isGuest, user?.id]);

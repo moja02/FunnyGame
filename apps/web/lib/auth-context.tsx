@@ -25,12 +25,25 @@ interface AuthContextType {
     nickname?: string
   ) => Promise<{ error: Error | null; needsEmailConfirmation?: boolean }>;
   signOut: () => Promise<void>;
-  updateProfile: (nickname: string, avatar: string) => Promise<boolean>;
+  updateProfile: (nickname: string, avatar: string) => Promise<{ success: boolean; error?: string }>;
+  checkNicknameAvailable: (nickname: string, excludeId?: string) => Promise<{ available: boolean; error?: string }>;
+}
+
+/**
+ * Generates an 8-character random alphanumeric suffix for guest names (e.g. guest-a8f3b29c).
+ */
+export function generateRandomGuestNickname(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let rand = '';
+  for (let i = 0; i < 8; i++) {
+    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `guest-${rand}`;
 }
 
 const DEFAULT_GUEST_PROFILE: PlayerProfile = {
   id: 'guest',
-  nickname: 'بطل التحدي',
+  nickname: 'guest-00000000',
   avatar: '⚡',
   isGuest: true,
 };
@@ -55,7 +68,8 @@ const AuthContext = createContext<AuthContextType>({
   signInWithPassword: async () => ({ error: null }),
   signUpWithPassword: async () => ({ error: null }),
   signOut: async () => {},
-  updateProfile: async () => false,
+  updateProfile: async () => ({ success: false }),
+  checkNicknameAvailable: async () => ({ available: true }),
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -69,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 1. Initial guest defaults from localStorage
     let guestId = 'guest_' + Math.random().toString(36).substring(2, 9);
-    let guestNick = 'بطل التحدي';
+    let guestNick = '';
     let guestAv = '⚡';
 
     if (typeof window !== 'undefined') {
@@ -78,10 +92,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       else localStorage.setItem('fg_guest_id', guestId);
 
       const storedNick = localStorage.getItem('fg_guest_nickname');
-      if (storedNick) guestNick = storedNick;
+      // If no nickname, or legacy "بطل التحدي", replace with unique guest-XXXXXXXX
+      if (!storedNick || storedNick === 'بطل التحدي') {
+        guestNick = generateRandomGuestNickname();
+        localStorage.setItem('fg_guest_nickname', guestNick);
+      } else {
+        guestNick = storedNick;
+      }
 
       const storedAv = localStorage.getItem('fg_guest_avatar');
       if (storedAv) guestAv = storedAv;
+    } else {
+      guestNick = generateRandomGuestNickname();
     }
 
     // Default state MUST be guest
@@ -95,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 2. Check for active Supabase session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user && isRealCloudUser(session.user)) {
-        await handleUserAuthenticated(session.user);
+        await handleUserAuthenticated(session.user, guestNick);
       } else {
         // If an anonymous session exists from earlier runs, purge it immediately
         if (session?.user && !isRealCloudUser(session.user)) {
@@ -124,7 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user && isRealCloudUser(session.user)) {
-        await handleUserAuthenticated(session.user);
+        await handleUserAuthenticated(session.user, guestNick);
       } else {
         setUser(null);
         setProfile({
@@ -142,14 +164,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const handleUserAuthenticated = async (authUser: User) => {
+  const handleUserAuthenticated = async (authUser: User, localGuestNick?: string) => {
     if (!isRealCloudUser(authUser)) return;
 
     setUser(authUser);
     const supabase = getSupabaseBrowserClient();
 
     try {
-      // Fetch or create profile record in Supabase
+      // Fetch profile record in Supabase
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -157,27 +179,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
 
       if (data && !error) {
+        // If the nickname in DB is legacy "بطل التحدي", upgrade to guest-XXXXXXXX or preserve custom in-game name
+        let activeNick = data.nickname;
+        if (!activeNick || activeNick === 'بطل التحدي') {
+          activeNick = localGuestNick && localGuestNick !== 'بطل التحدي'
+            ? localGuestNick
+            : generateRandomGuestNickname();
+          await supabase.from('profiles').update({ nickname: activeNick }).eq('id', authUser.id);
+        }
+
         setProfile({
           id: data.id,
-          nickname: data.nickname || 'بطل التحدي',
+          nickname: activeNick,
           avatar: data.avatar || '⚡',
           email: authUser.email,
           city: data.city || undefined,
           isGuest: false,
         });
       } else {
-        // Fallback to user metadata or create
-        const metaNick =
-          authUser.user_metadata?.nickname ||
-          authUser.user_metadata?.full_name ||
-          authUser.user_metadata?.name ||
-          'بطل التحدي';
-        const metaAvatar = authUser.user_metadata?.avatar || '👑';
+        // First-time sync: ALWAYS use the in-game chosen nickname, NEVER Google full_name
+        const gameNickname =
+          localGuestNick && localGuestNick !== 'بطل التحدي'
+            ? localGuestNick
+            : generateRandomGuestNickname();
 
         const newProfile: PlayerProfile = {
           id: authUser.id,
-          nickname: metaNick.split(' ')[0] || 'بطل التحدي',
-          avatar: metaAvatar,
+          nickname: gameNickname,
+          avatar: '⚡',
           email: authUser.email,
           isGuest: false,
         };
@@ -192,15 +221,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err) {
       console.warn('Profile sync notice:', err);
-      setProfile({
+      setProfile((prev) => ({
+        ...prev,
         id: authUser.id,
-        nickname: authUser.email?.split('@')[0] || 'بطل التحدي',
-        avatar: '👑',
         email: authUser.email,
         isGuest: false,
-      });
+      }));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  /**
+   * Check if a proposed nickname is unique and non-duplicate in Supabase
+   */
+  const checkNicknameAvailable = async (
+    candidateNickname: string,
+    excludeId?: string
+  ): Promise<{ available: boolean; error?: string }> => {
+    const trimmed = candidateNickname.trim();
+    if (!trimmed) {
+      return { available: false, error: 'الاسم لا يمكن أن يكون فارغاً' };
+    }
+    if (trimmed.length < 3) {
+      return { available: false, error: 'الاسم يجب أن يتكون من 3 أحرف على الأقل' };
+    }
+    if (trimmed.length > 16) {
+      return { available: false, error: 'الاسم يجب ألا يتجاوز 16 حرفاً' };
+    }
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      let query = supabase
+        .from('profiles')
+        .select('id, nickname')
+        .ilike('nickname', trimmed);
+
+      const targetId = excludeId || (profile.isGuest ? undefined : profile.id);
+      if (targetId) {
+        query = query.neq('id', targetId);
+      }
+
+      const { data, error } = await query.limit(1);
+      if (!error && data && data.length > 0) {
+        return {
+          available: false,
+          error: 'هذا الاسم مستخدم بالفعل من لاعب آخر، يرجى اختيار اسم مميز غير مكرر.',
+        };
+      }
+      return { available: true };
+    } catch {
+      return { available: true };
     }
   };
 
@@ -257,11 +328,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUpWithPassword = async (
     email: string,
     password: string,
-    nickname?: string
+    chosenNickname?: string
   ): Promise<{ error: Error | null; needsEmailConfirmation?: boolean }> => {
     try {
       const supabase = getSupabaseBrowserClient();
-      const cleanNick = nickname?.trim() || profile.nickname || 'بطل التحدي';
+      const trimmedNick = chosenNickname?.trim() || profile.nickname || generateRandomGuestNickname();
+
+      // Check uniqueness first
+      const check = await checkNicknameAvailable(trimmedNick);
+      if (!check.available) {
+        return { error: new Error(check.error || 'هذا الاسم مستخدم بالفعل') };
+      }
+
       const cleanAvatar = profile.avatar || '⚡';
 
       const { data, error } = await supabase.auth.signUp({
@@ -269,7 +347,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password,
         options: {
           data: {
-            nickname: cleanNick,
+            nickname: trimmedNick,
             avatar: cleanAvatar,
           },
         },
@@ -286,9 +364,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: new Error(error.message) };
       }
 
-      // If Supabase has confirmed session already
+      // If Supabase confirmed session immediately
       if (data.session && data.user) {
-        await handleUserAuthenticated(data.user);
+        await handleUserAuthenticated(data.user, trimmedNick);
         return { error: null, needsEmailConfirmation: false };
       }
 
@@ -315,7 +393,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (typeof window !== 'undefined' && localStorage.getItem('fg_guest_id')) ||
         'guest_' + Math.random().toString(36).substring(2, 9);
       const guestNick =
-        (typeof window !== 'undefined' && localStorage.getItem('fg_guest_nickname')) || 'بطل التحدي';
+        (typeof window !== 'undefined' && localStorage.getItem('fg_guest_nickname')) ||
+        generateRandomGuestNickname();
       const guestAv =
         (typeof window !== 'undefined' && localStorage.getItem('fg_guest_avatar')) || '⚡';
 
@@ -328,8 +407,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateProfile = async (newNickname: string, newAvatar: string): Promise<boolean> => {
-    const trimmed = newNickname.trim() || 'بطل التحدي';
+  const updateProfile = async (
+    newNickname: string,
+    newAvatar: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    const trimmed = newNickname.trim();
+    if (!trimmed) {
+      return { success: false, error: 'الاسم لا يمكن أن يكون فارغاً' };
+    }
+    if (trimmed.length < 3) {
+      return { success: false, error: 'الاسم يجب أن يتكون من 3 أحرف على الأقل' };
+    }
+    if (trimmed.length > 16) {
+      return { success: false, error: 'الاسم يجب ألا يتجاوز 16 حرفاً' };
+    }
+
+    // Check uniqueness if changing to a new nickname
+    if (trimmed.toLowerCase() !== profile.nickname.toLowerCase()) {
+      const check = await checkNicknameAvailable(trimmed, profile.isGuest ? undefined : profile.id);
+      if (!check.available) {
+        return { success: false, error: check.error };
+      }
+    }
 
     if (profile.isGuest) {
       // Save locally
@@ -342,7 +441,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         nickname: trimmed,
         avatar: newAvatar,
       }));
-      return true;
+      return { success: true };
     }
 
     // Save to Supabase for registered user
@@ -358,8 +457,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', profile.id);
 
       if (error) {
-        console.error('Failed to update cloud profile:', error);
-        return false;
+        return { success: false, error: 'تعذر تحديث الاسم: ' + error.message };
       }
 
       setProfile((prev) => ({
@@ -367,10 +465,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         nickname: trimmed,
         avatar: newAvatar,
       }));
-      return true;
-    } catch (err) {
-      console.error('Error updating profile:', err);
-      return false;
+      return { success: true };
+    } catch (err: unknown) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'تعذر تحديث الملف الشخصي',
+      };
     }
   };
 
@@ -385,6 +485,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUpWithPassword,
         signOut,
         updateProfile,
+        checkNicknameAvailable,
       }}
     >
       {children}

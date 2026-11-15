@@ -23,6 +23,7 @@ export default function ProfilePage() {
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   // Auth form state
   const [authMethod, setAuthMethod] = useState<'google' | 'email'>('google');
@@ -41,11 +42,14 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     setIsSaving(true);
-    const success = await updateProfile(nickname, selectedAvatar);
+    setSaveNotice(null);
+    const res = await updateProfile(nickname, selectedAvatar);
     setIsSaving(false);
-    if (success) {
+    if (res.success) {
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 2000);
+    } else if (res.error) {
+      setSaveNotice(res.error);
     }
   };
 
@@ -153,26 +157,43 @@ export default function ProfilePage() {
         </div>
 
         {/* Nickname Editor */}
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <input
-            type="text"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            maxLength={18}
-            placeholder="اسمك في اللعبة"
-            className="w-44 px-3 py-1.5 bg-black/40 border border-white/20 rounded-xl text-center font-bold text-white text-base outline-none focus:border-amber-400"
-          />
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-colors disabled:opacity-50"
-          >
-            {isSaved ? 'تم ✔' : isSaving ? '...' : 'حفظ'}
-          </button>
+        <div className="flex flex-col items-center justify-center gap-1.5 mb-2">
+          <div className="flex items-center justify-center gap-2">
+            <input
+              type="text"
+              value={nickname}
+              onChange={(e) => {
+                setNickname(e.target.value);
+                setSaveNotice(null);
+              }}
+              maxLength={16}
+              placeholder="اسمك المميز في اللعبة"
+              className="w-48 px-3 py-1.5 bg-black/40 border border-white/20 rounded-xl text-center font-bold text-white text-base outline-none focus:border-amber-400"
+            />
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-colors disabled:opacity-50"
+            >
+              {isSaved ? 'تم ✔' : isSaving ? '...' : 'حفظ'}
+            </button>
+          </div>
+
+          {saveNotice && (
+            <div className="text-[11px] font-bold text-rose-300 px-2 py-0.5 bg-rose-500/20 border border-rose-500/40 rounded-lg">
+              ⚠️ {saveNotice}
+            </div>
+          )}
+
+          {nickname.startsWith('guest-') && (
+            <div className="text-[10px] text-amber-300 font-bold px-2 py-0.5 bg-amber-400/10 rounded-lg border border-amber-400/20">
+              💡 اسمك الحالي افتراضي، اكتب اسماً مميزاً واضغط حفظ ليظهر في الصدارة!
+            </div>
+          )}
         </div>
 
         {/* Player ID / Email */}
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1 mt-1">
           {user?.email && (
             <span className="text-[11px] font-bold text-emerald-300 dir-ltr bg-emerald-950/40 px-2.5 py-0.5 rounded-lg border border-emerald-500/30">
               {user.email}
@@ -324,7 +345,7 @@ export default function ProfilePage() {
               <span>🟢</span>
               <span>حسابك مسجل وسحابي موثق</span>
             </div>
-            <div className="text-xs text-slate-300 mt-0.5">أرقامك القياسية تظهر في لوحة الصدارة الرسمية</div>
+            <div className="text-xs text-slate-300 mt-0.5">اسمك في اللعبة: <strong className="text-white">{profile.nickname}</strong></div>
           </div>
           <button
             onClick={signOut}
