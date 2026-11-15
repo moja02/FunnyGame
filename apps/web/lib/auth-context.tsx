@@ -9,7 +9,10 @@ export interface PlayerProfile {
   nickname: string;
   avatar: string;
   email?: string;
-  city?: string;
+  cityId?: string;
+  cityName?: string;
+  cityUpdatedAt?: string;
+  friends: string[];
   isGuest: boolean;
 }
 
@@ -27,6 +30,12 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   updateProfile: (nickname: string, avatar: string) => Promise<{ success: boolean; error?: string }>;
   checkNicknameAvailable: (nickname: string, excludeId?: string) => Promise<{ available: boolean; error?: string }>;
+  updateCity: (
+    cityId: string,
+    cityName: string
+  ) => Promise<{ success: boolean; error?: string; daysRemaining?: number }>;
+  addFriend: (friendId: string) => Promise<{ success: boolean; error?: string }>;
+  removeFriend: (friendId: string) => Promise<boolean>;
 }
 
 /**
@@ -45,6 +54,7 @@ const DEFAULT_GUEST_PROFILE: PlayerProfile = {
   id: 'guest',
   nickname: 'guest-00000000',
   avatar: '⚡',
+  friends: [],
   isGuest: true,
 };
 
@@ -70,6 +80,9 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   updateProfile: async () => ({ success: false }),
   checkNicknameAvailable: async () => ({ available: true }),
+  updateCity: async () => ({ success: false }),
+  addFriend: async () => ({ success: false }),
+  removeFriend: async () => false,
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -85,6 +98,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let guestId = 'guest_' + Math.random().toString(36).substring(2, 9);
     let guestNick = '';
     let guestAv = '⚡';
+    let guestCityId: string | undefined = undefined;
+    let guestCityName: string | undefined = undefined;
+    let guestCityUpdatedAt: string | undefined = undefined;
+    let storedFriends: string[] = [];
 
     if (typeof window !== 'undefined') {
       const storedId = localStorage.getItem('fg_guest_id');
@@ -102,6 +119,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const storedAv = localStorage.getItem('fg_guest_avatar');
       if (storedAv) guestAv = storedAv;
+
+      guestCityId = localStorage.getItem('fg_guest_city_id') || undefined;
+      guestCityName = localStorage.getItem('fg_guest_city_name') || undefined;
+      guestCityUpdatedAt = localStorage.getItem('fg_guest_city_updated_at') || undefined;
+
+      try {
+        const rawFriends = localStorage.getItem('fg_friends');
+        if (rawFriends) storedFriends = JSON.parse(rawFriends);
+      } catch {
+        storedFriends = [];
+      }
     } else {
       guestNick = generateRandomGuestNickname();
     }
@@ -111,6 +139,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: guestId,
       nickname: guestNick,
       avatar: guestAv,
+      cityId: guestCityId,
+      cityName: guestCityName,
+      cityUpdatedAt: guestCityUpdatedAt,
+      friends: storedFriends,
       isGuest: true,
     });
 
@@ -135,6 +167,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: guestId,
           nickname: guestNick,
           avatar: guestAv,
+          cityId: guestCityId,
+          cityName: guestCityName,
+          cityUpdatedAt: guestCityUpdatedAt,
+          friends: storedFriends,
           isGuest: true,
         });
         setIsLoading(false);
@@ -153,6 +189,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: guestId,
           nickname: guestNick,
           avatar: guestAv,
+          cityId: guestCityId,
+          cityName: guestCityName,
+          cityUpdatedAt: guestCityUpdatedAt,
+          friends: storedFriends,
           isGuest: true,
         });
         setIsLoading(false);
@@ -188,12 +228,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await supabase.from('profiles').update({ nickname: activeNick }).eq('id', authUser.id);
         }
 
+        // Friends
+        let friendsArr: string[] = [];
+        if (Array.isArray(data.friends)) {
+          friendsArr = data.friends;
+        } else if (typeof window !== 'undefined') {
+          const raw = localStorage.getItem('fg_friends');
+          if (raw) {
+            try { friendsArr = JSON.parse(raw); } catch { friendsArr = []; }
+          }
+        }
+
         setProfile({
           id: data.id,
           nickname: activeNick,
           avatar: data.avatar || '⚡',
           email: authUser.email,
-          city: data.city || undefined,
+          cityId: data.city_id || undefined,
+          cityName: data.city_name || data.city || undefined,
+          cityUpdatedAt: data.city_updated_at || undefined,
+          friends: friendsArr,
           isGuest: false,
         });
       } else {
@@ -208,6 +262,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           nickname: gameNickname,
           avatar: '⚡',
           email: authUser.email,
+          friends: [],
           isGuest: false,
         };
 
@@ -402,6 +457,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: guestId,
         nickname: guestNick,
         avatar: guestAv,
+        friends: [],
         isGuest: true,
       });
     }
@@ -474,6 +530,140 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  /**
+   * Enforces 30-day anti-hopping rule when updating player's city
+   */
+  const updateCity = async (
+    cityId: string,
+    cityName: string
+  ): Promise<{ success: boolean; error?: string; daysRemaining?: number }> => {
+    if (profile.cityUpdatedAt) {
+      const lastUpdate = new Date(profile.cityUpdatedAt).getTime();
+      const now = Date.now();
+      const diffDays = (now - lastUpdate) / (1000 * 60 * 60 * 24);
+      if (diffDays < 30) {
+        const daysRemaining = Math.max(1, Math.ceil(30 - diffDays));
+        return {
+          success: false,
+          daysRemaining,
+          error: `ما تقدرش تغيّر مدينتك إلا مرة في الشهر يا غالي.. خليك وفي لمدينتك 😉 (باقي ${daysRemaining} يوم)`,
+        };
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+
+    if (profile.isGuest) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('fg_guest_city_id', cityId);
+        localStorage.setItem('fg_guest_city_name', cityName);
+        localStorage.setItem('fg_guest_city_updated_at', nowIso);
+      }
+      setProfile((prev) => ({
+        ...prev,
+        cityId,
+        cityName,
+        cityUpdatedAt: nowIso,
+      }));
+      return { success: true };
+    }
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          city_id: cityId,
+          city_name: cityName,
+          city: cityName, // backward-compat with old column
+          city_updated_at: nowIso,
+          updated_at: nowIso,
+        })
+        .eq('id', profile.id);
+
+      if (error) {
+        console.warn('City update notice:', error);
+      }
+
+      setProfile((prev) => ({
+        ...prev,
+        cityId,
+        cityName,
+        cityUpdatedAt: nowIso,
+      }));
+      return { success: true };
+    } catch (err: unknown) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'تعذر تحديث المدينة',
+      };
+    }
+  };
+
+  const addFriend = async (friendId: string): Promise<{ success: boolean; error?: string }> => {
+    const cleanId = friendId.trim().replace(/^#/, '');
+    if (!cleanId) return { success: false, error: 'يرجى كتابة معرّف الصديق' };
+    if (cleanId === profile.id) return { success: false, error: 'لا يمكنك إضافة معرّف حسابك كصديق!' };
+
+    const currentFriends = profile.friends || [];
+    if (currentFriends.includes(cleanId)) {
+      return { success: false, error: 'هذا الصديق مضاف مسبقاً في قائمتك!' };
+    }
+
+    const updated = [...currentFriends, cleanId];
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('fg_friends', JSON.stringify(updated));
+    }
+
+    setProfile((prev) => ({ ...prev, friends: updated }));
+
+    if (!profile.isGuest) {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        await supabase
+          .from('profiles')
+          .update({
+            friends: updated,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', profile.id);
+      } catch (err) {
+        console.warn('Friends sync notice:', err);
+      }
+    }
+
+    return { success: true };
+  };
+
+  const removeFriend = async (friendId: string): Promise<boolean> => {
+    const currentFriends = profile.friends || [];
+    const updated = currentFriends.filter((id) => id !== friendId);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('fg_friends', JSON.stringify(updated));
+    }
+
+    setProfile((prev) => ({ ...prev, friends: updated }));
+
+    if (!profile.isGuest) {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        await supabase
+          .from('profiles')
+          .update({
+            friends: updated,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', profile.id);
+      } catch (err) {
+        console.warn('Friends remove notice:', err);
+      }
+    }
+
+    return true;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -486,6 +676,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signOut,
         updateProfile,
         checkNicknameAvailable,
+        updateCity,
+        addFriend,
+        removeFriend,
       }}
     >
       {children}

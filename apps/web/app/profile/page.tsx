@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { BottomNav } from '../components/BottomNav';
+import { CitySelectModal } from '../components/CitySelectModal';
 import { useAuth } from '@/lib/auth-context';
+import { getCityById, LIBYA_REGIONS } from '@funnygame/game-core';
 
 const avatars = ['⚡', '👑', '🎯', '🦁', '🤖', '🐱', '🦊', '🚀', '🔥', '💎', '🌟', '🏆'];
 
@@ -16,6 +18,7 @@ export default function ProfilePage() {
     signUpWithPassword,
     signOut,
     updateProfile,
+    updateCity,
   } = useAuth();
 
   const [nickname, setNickname] = useState(profile.nickname);
@@ -24,6 +27,9 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+
+  // City modal
+  const [isCityModalOpen, setIsCityModalOpen] = useState(false);
 
   // Auth form state
   const [authMethod, setAuthMethod] = useState<'google' | 'email'>('google');
@@ -120,6 +126,9 @@ export default function ProfilePage() {
     }
   };
 
+  const currentCityObj = profile.cityId ? getCityById(profile.cityId) : null;
+  const currentRegionInfo = currentCityObj ? LIBYA_REGIONS[currentCityObj.region] : null;
+
   return (
     <main className="flex-1 flex flex-col p-4 select-none pb-24 max-w-[480px] w-full mx-auto">
       {/* Header */}
@@ -208,6 +217,33 @@ export default function ProfilePage() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Libyan City Representation Card */}
+      <div className="p-4 bg-slate-900/90 border border-amber-400/40 rounded-3xl mb-4 shadow-lg flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-2xl">
+            {currentRegionInfo?.badge || '🏙️'}
+          </div>
+          <div>
+            <div className="text-[11px] text-slate-400 font-bold">المدينة التي تمثلها في الترتيب:</div>
+            <div className="text-sm font-black text-white flex items-center gap-1.5 mt-0.5">
+              <span>{profile.cityName || 'لم تختر مدينة بعد'}</span>
+              {currentRegionInfo && (
+                <span className="px-2 py-0.2 rounded-full bg-white/10 text-slate-300 text-[10px] font-bold">
+                  إقليم {currentRegionInfo.name_ar}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setIsCityModalOpen(true)}
+          className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/10 text-amber-300 text-xs font-black rounded-xl transition-colors active:scale-95"
+        >
+          {profile.cityName ? 'تغيير' : 'اختيار 📍'}
+        </button>
       </div>
 
       {/* Cloud Account Sync Card / Sign Out */}
@@ -392,13 +428,15 @@ export default function ProfilePage() {
               {profile.isGuest ? 'غير مصنف (زائر)' : 'مؤهل للمنافسة 🏆'}
             </div>
           </div>
+          <div className="p-3.5 bg-purple-950/20 border border-purple-500/30 rounded-2xl text-center">
+            <div className="text-xs text-purple-300 font-bold">الأصدقاء المضافون</div>
+            <div className="text-2xl font-black text-white mt-1 tabular-nums">
+              {profile.friends?.length || 0}
+            </div>
+          </div>
           <div className="p-3.5 bg-emerald-950/20 border border-emerald-500/30 rounded-2xl text-center">
             <div className="text-xs text-emerald-300 font-bold">الألعاب الملعوبة</div>
             <div className="text-2xl font-black text-white mt-1 tabular-nums">0</div>
-          </div>
-          <div className="p-3.5 bg-cyan-950/20 border border-cyan-500/30 rounded-2xl text-center">
-            <div className="text-xs text-cyan-300 font-bold">درجة العقل (Mind Score)</div>
-            <div className="text-2xl font-black text-white mt-1 tabular-nums">0 / 1000</div>
           </div>
           <div className="p-3.5 bg-amber-950/20 border border-amber-500/30 rounded-2xl text-center">
             <div className="text-xs text-amber-300 font-bold">سلسلة الأيام (Streak)</div>
@@ -406,6 +444,16 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* City Select Modal */}
+      <CitySelectModal
+        isOpen={isCityModalOpen}
+        currentCityId={profile.cityId}
+        onSelectCity={async (city) => {
+          return await updateCity(city.id, city.name_ar);
+        }}
+        onClose={() => setIsCityModalOpen(false)}
+      />
 
       {/* Bottom Sticky Navigation Bar */}
       <BottomNav />

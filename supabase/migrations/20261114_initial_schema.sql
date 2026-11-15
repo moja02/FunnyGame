@@ -14,6 +14,10 @@ create table if not exists public.profiles (
   nickname text not null default ('guest-' || substr(md5(random()::text), 1, 8)),
   avatar text not null default '⚡',
   city text default null,
+  city_id text default null,
+  city_name text default null,
+  city_updated_at timestamptz default null,
+  friends jsonb not null default '[]'::jsonb,
   mind_score integer not null default 0 check (mind_score >= 0 and mind_score <= 1000),
   current_streak integer not null default 0 check (current_streak >= 0),
   last_daily_date date default null,
@@ -154,13 +158,14 @@ select
   p.id as user_id,
   p.nickname,
   p.avatar,
-  p.city,
+  coalesce(p.city_name, p.city) as city_name,
+  p.city_id,
   max(gr.score) as best_score,
   max(gr.stage_reached) as highest_stage
 from public.game_runs gr
 join public.profiles p on gr.user_id = p.id
 where gr.validated = true and gr.mode != 'practice'
-group by gr.game_id, p.id, p.nickname, p.avatar, p.city;
+group by gr.game_id, p.id, p.nickname, p.avatar, p.city_name, p.city, p.city_id;
 
 -- Daily Standings View
 create or replace view public.view_daily_leaderboard as
