@@ -66,13 +66,14 @@ export const ColorTrapView: React.FC<GameViewProps<ColorTrapQuestionPayload, str
   return (
     <div className="w-full flex-1 flex flex-col justify-between p-3 select-none touch-none">
       {/* 1. Rule Banner */}
-      <div className="text-center py-1.5 px-3 bg-slate-900/90 border border-white/10 rounded-xl mb-2 flex items-center justify-between">
+      <div className="text-center py-2.5 px-4 bg-slate-900/95 border border-amber-400/40 rounded-2xl mb-3 flex items-center justify-center shadow-lg shadow-black/40">
         {!payload.isSilentRule ? (
-          <span className="text-xs font-black text-amber-400 mx-auto tracking-wide">
-            القاعدة: {payload.ruleLabelAr}
-          </span>
+          <div className="text-base sm:text-lg font-black text-amber-300 tracking-wide flex items-center justify-center gap-1.5 drop-shadow">
+            <span className="text-amber-400">القاعدة:</span>
+            <span>{payload.ruleLabelAr}</span>
+          </div>
         ) : (
-          <span className="text-xs font-black text-rose-400 mx-auto animate-pulse">
+          <span className="text-base sm:text-lg font-black text-rose-400 mx-auto animate-pulse flex items-center justify-center gap-1.5">
             ⚠️ تبديل صامت! ركّز في المطلوب
           </span>
         )}
