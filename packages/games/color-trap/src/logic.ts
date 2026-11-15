@@ -232,7 +232,6 @@ export class ColorTrapLogic implements GameLogic<ColorTrapQuestionPayload, strin
     }
 
     const deceptiveButtons = Boolean(cfg.params['deceptiveButtons']);
-    const shuffleButtons = Boolean(cfg.params['shuffleButtons']);
 
     let optionsList: ColorTrapOption[] = Array.from(selectedIds).map((id) => {
       const colorObj = ALL_COLORS.find((c) => c.id === id)!;
@@ -251,9 +250,8 @@ export class ColorTrapLogic implements GameLogic<ColorTrapQuestionPayload, strin
       };
     });
 
-    if (shuffleButtons) {
-      optionsList = rng.shuffle(optionsList);
-    }
+    // Always shuffle options randomly using RNG across all stages (guarantees dynamic positions)
+    optionsList = rng.shuffle(optionsList);
 
     // Rule human label in Arabic
     let ruleLabelAr = 'اضغط لون الخط 🎨';

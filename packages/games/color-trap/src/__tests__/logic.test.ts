@@ -80,4 +80,25 @@ describe('ColorTrapLogic - Strict Architectural Solvability & Rules', () => {
     expect(colorTrapLogic.stageConfig(11).isBoss).toBe(false);
     expect(colorTrapLogic.stageConfig(21).isBoss).toBe(false);
   });
+
+  it('guarantees correct answer is randomly distributed across all 4 button positions (not locked to slot 0)', () => {
+    const slotCounts = [0, 0, 0, 0];
+    const N = 1000;
+    const cfg = colorTrapLogic.stageConfig(1); // Test warmup stage 1
+
+    for (let i = 0; i < N; i++) {
+      const rng = createRng(10000 + i);
+      const q = colorTrapLogic.generate(rng, cfg, i);
+      const correctSlot = q.payload.options.findIndex((o) => o.id === q.payload.correctAnswerId);
+      expect(correctSlot).toBeGreaterThanOrEqual(0);
+      expect(correctSlot).toBeLessThanOrEqual(3);
+      slotCounts[correctSlot] = (slotCounts[correctSlot] ?? 0) + 1;
+    }
+
+    // Every slot should get roughly ~25% (between 15% and 35%)
+    for (let s = 0; s < 4; s++) {
+      expect(slotCounts[s] ?? 0).toBeGreaterThan(150);
+      expect(slotCounts[s] ?? 0).toBeLessThan(350);
+    }
+  });
 });

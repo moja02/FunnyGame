@@ -114,8 +114,7 @@ export const ColorTrapView: React.FC<GameViewProps<ColorTrapQuestionPayload, str
 
       {/* 3. 2x2 Grid of 4 Action Buttons */}
       <div className="grid grid-cols-2 gap-3 mt-4 pt-1">
-        {payload.options.map((option, idx) => {
-          const keyLabel = idx + 1;
+        {payload.options.map((option) => {
           const bgStyle = option.deceptiveBgHex
             ? { backgroundColor: option.deceptiveBgHex }
             : { backgroundColor: '#242424' };
@@ -131,13 +130,8 @@ export const ColorTrapView: React.FC<GameViewProps<ColorTrapQuestionPayload, str
               style={bgStyle}
               className="h-20 sm:h-24 min-h-[78px] rounded-3xl border-2 border-white/20 text-white font-black active:scale-95 active:brightness-110 transition-all flex items-center justify-center relative shadow-xl cursor-pointer overflow-hidden"
             >
-              {/* Keyboard indicator: dedicated top-left corner badge */}
-              <span className="absolute top-2 left-2.5 w-6 h-6 rounded-lg bg-black/60 border border-white/25 text-white/90 text-xs font-mono font-bold flex items-center justify-center shadow-sm select-none">
-                {keyLabel}
-              </span>
-
               {/* Main color label: large, thick, clearly centered */}
-              <span className="text-2xl sm:text-3xl font-black text-white px-6 text-center select-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)]">
+              <span className="text-2xl sm:text-3xl font-black text-white px-4 text-center select-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)]">
                 {option.labelAr}
               </span>
             </button>
