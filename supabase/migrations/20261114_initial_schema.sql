@@ -26,6 +26,7 @@ create table if not exists public.profiles (
 );
 
 -- Ensure columns exist if table was already created earlier
+alter table public.profiles add column if not exists city text default null;
 alter table public.profiles add column if not exists city_id text default null;
 alter table public.profiles add column if not exists city_name text default null;
 alter table public.profiles add column if not exists city_updated_at timestamptz default null;
@@ -164,14 +165,14 @@ select
   p.id as user_id,
   p.nickname,
   p.avatar,
-  coalesce(p.city_name, p.city) as city_name,
+  p.city_name,
   p.city_id,
   max(gr.score) as best_score,
   max(gr.stage_reached) as highest_stage
 from public.game_runs gr
 join public.profiles p on gr.user_id = p.id
 where gr.validated = true and gr.mode != 'practice'
-group by gr.game_id, p.id, p.nickname, p.avatar, p.city_name, p.city, p.city_id;
+group by gr.game_id, p.id, p.nickname, p.avatar, p.city_name, p.city_id;
 
 -- Daily Standings View
 create or replace view public.view_daily_leaderboard as
