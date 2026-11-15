@@ -8,6 +8,7 @@ export interface ResultScreenProps {
   gameTitle: string;
   onPlayAgain: () => void;
   onGoHome: () => void;
+  onViewLeaderboard?: () => void;
 }
 
 export const ResultScreen: React.FC<ResultScreenProps> = ({
@@ -17,7 +18,8 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   taunt,
   gameTitle,
   onPlayAgain,
-  onGoHome
+  onGoHome,
+  onViewLeaderboard
 }) => {
   const isNewBest = personalBestScore !== undefined && score > personalBestScore;
 
@@ -94,6 +96,17 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           <span>📲</span>
           <span>تحدّى أصحابك على واتساب</span>
         </button>
+
+        {/* Leaderboard Button */}
+        {onViewLeaderboard && (
+          <button
+            onClick={onViewLeaderboard}
+            className="w-full h-11 rounded-2xl bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/40 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+          >
+            <span>🏆</span>
+            <span>لوحة صدارة اللعبة</span>
+          </button>
+        )}
 
         {/* Home Button */}
         <button

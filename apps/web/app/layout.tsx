@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Tajawal, Lalezar } from 'next/font/google';
 import './globals.css';
+import { AuthProvider } from '@/lib/auth-context';
 
 const tajawal = Tajawal({
   subsets: ['arabic'],
@@ -40,7 +41,7 @@ export default function RootLayout({
       <body className="bg-arcade-dark text-white min-h-screen flex flex-col items-center">
         {/* Main Application Frame: Mobile-First full width, desktop centered 480px frame with expanding container */}
         <div className="w-full max-w-[480px] lg:max-w-6xl min-h-screen flex flex-col bg-[#0d071a] border-x border-white/5 relative">
-          {children}
+          <AuthProvider>{children}</AuthProvider>
         </div>
       </body>
     </html>

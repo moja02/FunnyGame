@@ -311,13 +311,22 @@ export default function GamesPage() {
                 </span>
 
                 {isReady ? (
-                  <Link
-                    href={`/play/${game.id}`}
-                    className="px-4 py-2 bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-slate-950 font-black rounded-xl text-xs shadow-lg active:scale-95 transition-transform flex items-center gap-1.5"
-                  >
-                    <span>العب توا</span>
-                    <span>⚡</span>
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/leaderboard/${game.id}`}
+                      className="px-3 py-2 bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/30 text-amber-300 font-bold rounded-xl text-xs flex items-center gap-1 transition-colors"
+                    >
+                      <span>🏆</span>
+                      <span>الصدارة</span>
+                    </Link>
+                    <Link
+                      href={`/play/${game.id}`}
+                      className="px-4 py-2 bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-slate-950 font-black rounded-xl text-xs shadow-lg active:scale-95 transition-transform flex items-center gap-1.5"
+                    >
+                      <span>العب توا</span>
+                      <span>⚡</span>
+                    </Link>
+                  </div>
                 ) : (
                   <span className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 text-xs font-bold">
                     قريباً

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
 import {
   clientRegistry,
   createRng,
@@ -31,6 +32,7 @@ interface PlayClientProps {
 
 export default function PlayClient({ gameId }: PlayClientProps) {
   const router = useRouter();
+  const { profile, user } = useAuth();
 
   // Retrieve game module from client registry
   const [module, setModule] = useState<GameModule<any, any> | undefined>(undefined);
@@ -109,23 +111,26 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       }
     }
 
-    try {
-      await fetch('/api/runs/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          runId: runIdRef.current || `local_${Date.now()}`,
-          gameId,
-          seed: seedRef.current,
-          answers: answersRef.current,
-          startedAt: startedAtRef.current,
-          submittedAt
-        })
-      });
-    } catch (err) {
-      console.warn('Run submit notice:', err);
+    // Submit verified run to server if registered cloud user
+    if (!profile.isGuest && user?.id) {
+      try {
+        await fetch('/api/runs/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            runId: runIdRef.current || `local_${Date.now()}`,
+            gameId,
+            seed: seedRef.current,
+            answers: answersRef.current,
+            startedAt: startedAtRef.current,
+            submittedAt
+          })
+        });
+      } catch (err) {
+        console.warn('Run submit notice:', err);
+      }
     }
-  }, [gameId, personalBest]);
+  }, [gameId, personalBest, profile.isGuest, user?.id]);
 
   // Load and present next question
   const loadQuestion = useCallback(() => {
@@ -269,28 +274,30 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     correctCountRef.current = 0;
     qIndexRef.current = 0;
 
-    // Fetch start seed from server
+    // Fetch start seed from server if registered, otherwise play seamlessly offline
     let generatedSeed = Math.floor(Math.random() * 2147483647) + 1;
-    let runId = `run_${Date.now()}`;
+    let runId = `local_${Date.now()}`;
     const startedAt = Date.now();
 
-    try {
-      const res = await fetch('/api/runs/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gameId,
-          userId: 'usr_guest_' + (typeof window !== 'undefined' ? (localStorage.getItem('fg_uid') || 'local') : 'guest'),
-          mode: 'free'
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.seed) generatedSeed = data.seed;
-        if (data.runId) runId = data.runId;
+    if (!profile.isGuest && user?.id) {
+      try {
+        const res = await fetch('/api/runs/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gameId,
+            userId: user.id,
+            mode: 'free'
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.seed) generatedSeed = data.seed;
+          if (data.runId) runId = data.runId;
+        }
+      } catch {
+        // Offline fallback
       }
-    } catch {
-      // Offline fallback
     }
 
     seedRef.current = generatedSeed;
@@ -417,11 +424,18 @@ export default function PlayClient({ gameId }: PlayClientProps) {
           <div className="flex flex-col w-full max-w-xs gap-2.5">
             <button
               onClick={handleStartGame}
-              className="w-full h-14 bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-slate-950 font-black rounded-2xl text-lg shadow-[0_5px_0_#9a3412] active:translate-y-1 transition-all flex items-center justify-center gap-2"
+              className="w-full h-14 bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-slate-950 font-black rounded-2xl text-lg shadow-[0_5px_0_#9a3412] active:translate-y-1 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>ابدأ الجولة</span>
               <span>⚡</span>
             </button>
+            <Link
+              href={`/leaderboard/${gameId}`}
+              className="w-full h-11 rounded-xl bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <span>🏆</span>
+              <span>لوحة صدارة {titleAr}</span>
+            </Link>
             <Link
               href="/"
               className="w-full h-10 rounded-xl bg-white/5 text-slate-400 hover:text-white font-bold text-xs flex items-center justify-center transition-colors"
@@ -474,6 +488,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             gameTitle={titleAr}
             onPlayAgain={handleStartGame}
             onGoHome={() => router.push('/')}
+            onViewLeaderboard={() => router.push(`/leaderboard/${gameId}`)}
           />
         </div>
       )}
