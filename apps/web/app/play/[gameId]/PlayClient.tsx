@@ -159,9 +159,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         console.warn('Profile score sync notice:', profErr);
       }
 
-      // Also try game_runs if table is created
+      // Also record to game_runs table
       try {
-        await supabase.from('game_runs').insert({
+        const { error: fullErr } = await supabase.from('game_runs').insert({
           user_id: user.id,
           game_id: gameId,
           mode: 'free',
@@ -171,8 +171,18 @@ export default function PlayClient({ gameId }: PlayClientProps) {
           answers_json: answersRef.current,
           validated: true,
         });
-      } catch {
-        // game_runs table optional until migration is applied
+
+        // Fallback to essential columns existing in current schema if new columns not yet migrated
+        if (fullErr) {
+          await supabase.from('game_runs').insert({
+            user_id: user.id,
+            game_id: gameId,
+            score: finalScore,
+            stage_reached: stageRef.current,
+          });
+        }
+      } catch (err) {
+        console.warn('game_runs insert notice:', err);
       }
     }
   }, [gameId, personalBest, profile.isGuest, user?.id]);

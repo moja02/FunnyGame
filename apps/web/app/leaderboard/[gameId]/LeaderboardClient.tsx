@@ -76,13 +76,30 @@ export default function LeaderboardClient({ gameId }: { gameId: string }) {
               isCurrentUser: item.user_id === profile.id,
             }));
           } else {
-            // 2. Direct profiles fallback where registered players have recorded scores
-            const { data: profData } = await supabase
+            // 2. Direct profiles fallback where registered players exist
+            let profData: any[] | null = null;
+
+            // Attempt 1: With city fields if migrated
+            const resWithCity = await supabase
               .from('profiles')
               .select('id, nickname, avatar, city, city_name, city_id, wins, total_games')
-              .gt('wins', 0)
               .order('wins', { ascending: false })
               .limit(100);
+
+            if (!resWithCity.error && resWithCity.data && resWithCity.data.length > 0) {
+              profData = resWithCity.data;
+            } else {
+              // Attempt 2: Basic profiles columns (guaranteed to exist in current schema)
+              const resSimple = await supabase
+                .from('profiles')
+                .select('id, nickname, avatar, wins, total_games')
+                .order('wins', { ascending: false })
+                .limit(100);
+
+              if (!resSimple.error && resSimple.data) {
+                profData = resSimple.data;
+              }
+            }
 
             if (profData && profData.length > 0) {
               list = profData.map((item, idx) => ({
@@ -99,17 +116,21 @@ export default function LeaderboardClient({ gameId }: { gameId: string }) {
             }
           }
 
-          // 3. If current user is registered, has a verified run stored locally, ensure they appear
+          // 3. Ensure current user's local verified run and city are reflected
           if (!profile.isGuest && typeof window !== 'undefined') {
             const localPb = Number(localStorage.getItem(`fg_pb_${gameId}`) || 0);
             const userIndex = list.findIndex((e) => e.userId === profile.id);
 
             if (userIndex >= 0) {
-              // Update with user's current city if changed
+              // Update with user's current city and local PB if higher
               list[userIndex]!.city = profile.cityName || list[userIndex]!.city;
               list[userIndex]!.cityId = profile.cityId || list[userIndex]!.cityId;
               list[userIndex]!.nickname = profile.nickname;
-            } else if (localPb > 0) {
+              if (localPb > list[userIndex]!.bestScore) {
+                list[userIndex]!.bestScore = localPb;
+                list[userIndex]!.highestStage = Math.max(1, Math.floor(localPb / 700));
+              }
+            } else if (localPb >= 0) {
               list.push({
                 rank: list.length + 1,
                 userId: profile.id,
@@ -121,11 +142,12 @@ export default function LeaderboardClient({ gameId }: { gameId: string }) {
                 highestStage: Math.max(1, Math.floor(localPb / 700)),
                 isCurrentUser: true,
               });
-              list.sort((a, b) => b.bestScore - a.bestScore);
-              list.forEach((e, idx) => {
-                e.rank = idx + 1;
-              });
             }
+
+            list.sort((a, b) => b.bestScore - a.bestScore);
+            list.forEach((e, idx) => {
+              e.rank = idx + 1;
+            });
           }
 
           setAllEntries(list);
