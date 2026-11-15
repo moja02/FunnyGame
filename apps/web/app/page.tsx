@@ -62,13 +62,9 @@ export default function HomePage() {
           </h1>
         </div>
 
-        <Link
-          href="/profile"
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/15 rounded-xl text-xs font-bold text-slate-200 hover:bg-white/10 transition-colors"
-        >
-          <span>👤</span>
-          <span>الملف الشخصي</span>
-        </Link>
+        <div className="text-xs font-bold px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-slate-300">
+          16 لعبة 🎮
+        </div>
       </header>
 
       {/* Hero Mind Score & Daily Challenge Widget */}
@@ -178,15 +174,13 @@ export default function HomePage() {
 
               <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs font-bold">
                 <span className="text-amber-300/80">تدرّج من 1 لـ 70+</span>
-                {cat.id === 'speed' ? (
-                  <Link href="/play/color-trap" className="px-2.5 py-1 rounded-lg bg-rose-500 text-white text-[11px] font-black hover:bg-rose-600 transition-colors">
-                    ألوان خادعة ⚡
-                  </Link>
-                ) : (
-                  <Link href="/games" className="text-slate-400 hover:text-slate-200 text-[11px]">
-                    قيد التركيب ⏳
-                  </Link>
-                )}
+                <Link
+                  href="/games"
+                  className="text-slate-400 hover:text-white text-[11px] flex items-center gap-1 transition-colors"
+                >
+                  <span>تصفح الألعاب</span>
+                  <span>◀</span>
+                </Link>
               </div>
             </div>
           ))}
