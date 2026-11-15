@@ -113,7 +113,8 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     }
 
     // Submit verified run to server if registered cloud user
-    if (!profile.isGuest && user?.id) {
+    const activeUserId = user?.id || (profile.isGuest ? null : profile.id);
+    if (!profile.isGuest && activeUserId) {
       // 1. Try server API route (when running with Next server)
       try {
         await fetch('/api/runs/submit', {
@@ -140,7 +141,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         const { data: currentProf } = await supabase
           .from('profiles')
           .select('total_games, wins')
-          .eq('id', user.id)
+          .eq('id', activeUserId)
           .maybeSingle();
 
         const currentTotal = Number(currentProf?.total_games || 0);
@@ -154,7 +155,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             wins: newBest,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', user.id);
+          .eq('id', activeUserId);
       } catch (profErr) {
         console.warn('Profile score sync notice:', profErr);
       }
@@ -162,7 +163,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       // Also record to game_runs table
       try {
         const { error: fullErr } = await supabase.from('game_runs').insert({
-          user_id: user.id,
+          user_id: activeUserId,
           game_id: gameId,
           mode: 'free',
           seed: seedRef.current,
@@ -175,7 +176,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         // Fallback to essential columns existing in current schema if new columns not yet migrated
         if (fullErr) {
           await supabase.from('game_runs').insert({
-            user_id: user.id,
+            user_id: activeUserId,
             game_id: gameId,
             score: finalScore,
             stage_reached: stageRef.current,
@@ -185,7 +186,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         console.warn('game_runs insert notice:', err);
       }
     }
-  }, [gameId, personalBest, profile.isGuest, user?.id]);
+  }, [gameId, personalBest, profile.id, profile.isGuest, user?.id]);
 
   // Load and present next question
   const loadQuestion = useCallback(() => {

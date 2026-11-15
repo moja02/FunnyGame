@@ -121,6 +121,31 @@ export default function LeaderboardClient({ gameId }: { gameId: string }) {
             const localPb = Number(localStorage.getItem(`fg_pb_${gameId}`) || 0);
             const userIndex = list.findIndex((e) => e.userId === profile.id);
 
+            // If local high score is higher than remote score, push it to Supabase immediately
+            if (localPb > 0 && profile.id) {
+              const currentRemote = userIndex >= 0 ? list[userIndex]!.bestScore : 0;
+              if (localPb > currentRemote) {
+                supabase
+                  .from('profiles')
+                  .update({
+                    wins: localPb,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', profile.id)
+                  .then(() => {});
+
+                supabase
+                  .from('game_runs')
+                  .insert({
+                    user_id: profile.id,
+                    game_id: gameId,
+                    score: localPb,
+                    stage_reached: Math.max(1, Math.floor(localPb / 700)),
+                  })
+                  .then(() => {});
+              }
+            }
+
             if (userIndex >= 0) {
               // Update with user's current city and local PB if higher
               list[userIndex]!.city = profile.cityName || list[userIndex]!.city;
