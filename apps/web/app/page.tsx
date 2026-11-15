@@ -106,42 +106,29 @@ export default function HomePage() {
         </Link>
       </div>
 
-      {/* Featured Game & Games Library Hub Entry */}
-      <div className="mb-5 p-4 rounded-3xl bg-gradient-to-r from-rose-950/60 via-purple-950/50 to-amber-950/50 border-2 border-rose-500/50 shadow-xl relative overflow-hidden">
-        <div className="flex items-start justify-between gap-3 mb-3">
+      {/* Games Library Hub Entry */}
+      <Link
+        href="/games"
+        className="mb-5 p-4 rounded-3xl bg-gradient-to-r from-amber-500/15 via-rose-500/15 to-purple-600/20 border-2 border-amber-400/40 shadow-xl flex items-center justify-between hover:scale-[1.01] active:scale-95 transition-transform"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-2xl">
+            🎮
+          </div>
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">
-                لعبة متاحة توا 🔥
+            <div className="flex items-center gap-2 mb-0.5">
+              <h2 className="text-base font-black text-white">مكتبة الألعاب الكاملة</h2>
+              <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black">
+                16 لعبة
               </span>
-              <span className="text-xs text-amber-300 font-bold">السرعة والتركيز</span>
             </div>
-            <h2 className="text-lg font-black text-white">ألوان خادعة 🎨</h2>
-            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-              اكبح ردة فعلك التلقائية واضغط الزر حسب المطلوب قبل ما ينفد الوقت!
+            <p className="text-xs text-slate-300">
+              السرعة، الحساب، الذاكرة، والمنطق مع تدرّج مراحل وتحديات
             </p>
           </div>
-          <div className="text-3xl p-2.5 bg-rose-500/20 rounded-2xl border border-rose-500/30">🎨</div>
         </div>
-
-        <div className="flex items-center gap-2 pt-2 border-t border-white/10">
-          <Link
-            href="/play/color-trap"
-            className="flex-1 py-2.5 px-4 bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-slate-950 font-black rounded-xl text-center text-xs shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-1.5"
-          >
-            <span>العب ألوان خادعة</span>
-            <span>⚡</span>
-          </Link>
-
-          <Link
-            href="/games"
-            className="py-2.5 px-4 bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold rounded-xl text-xs flex items-center gap-1 transition-colors"
-          >
-            <span>كل الألعاب (16)</span>
-            <span>🎮</span>
-          </Link>
-        </div>
-      </div>
+        <div className="text-amber-400 text-sm font-black pr-1">◀</div>
+      </Link>
 
       {/* Abilities Section */}
       <div className="mb-4">
