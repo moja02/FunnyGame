@@ -32,6 +32,9 @@ alter table public.profiles add column if not exists city_name text default null
 alter table public.profiles add column if not exists city_updated_at timestamptz default null;
 alter table public.profiles add column if not exists friends jsonb not null default '[]'::jsonb;
 
+-- Strict unique in-game nickname constraint
+create unique index if not exists idx_profiles_nickname_unique on public.profiles (lower(trim(nickname)));
+
 -- Profiles RLS
 alter table public.profiles enable row level security;
 
