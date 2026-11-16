@@ -542,6 +542,11 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             personalBestScore={personalBest}
             taunt={getTaunt()}
             gameTitle={titleAr}
+            shareUrl={
+              typeof window !== 'undefined'
+                ? `${window.location.origin}${window.location.pathname.startsWith('/FunnyGame') ? '/FunnyGame' : ''}/play/${gameId}`
+                : `https://moja02.github.io/FunnyGame/play/${gameId}`
+            }
             onPlayAgain={handleStartGame}
             onGoHome={() => router.push('/')}
             onViewLeaderboard={() => router.push(`/leaderboard/${gameId}`)}

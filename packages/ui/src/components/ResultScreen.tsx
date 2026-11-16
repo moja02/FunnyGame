@@ -6,6 +6,7 @@ export interface ResultScreenProps {
   personalBestScore?: number;
   taunt: string;
   gameTitle: string;
+  shareUrl?: string;
   onPlayAgain: () => void;
   onGoHome: () => void;
   onViewLeaderboard?: () => void;
@@ -17,6 +18,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   personalBestScore,
   taunt,
   gameTitle,
+  shareUrl,
   onPlayAgain,
   onGoHome,
   onViewLeaderboard
@@ -24,18 +26,29 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   const isNewBest = personalBestScore !== undefined && score > personalBestScore;
 
   const handleShare = () => {
-    const shareText = `جبت ${score.toLocaleString('en-US')} نقطة في لعبة "${gameTitle}" في FunnyGame ⚡ ووصلت للمرحلة ${stageReached}! تقدر تفوتني ولا عقلك طافي؟ 🧠🔥\nhttps://funnygame.ly`;
+    let targetUrl = shareUrl;
+    if (!targetUrl && typeof window !== 'undefined') {
+      targetUrl = window.location.href;
+    }
+    if (!targetUrl) {
+      targetUrl = 'https://moja02.github.io/FunnyGame/';
+    }
 
-    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+    const shareText = `جبت ${score.toLocaleString('en-US')} نقطة في لعبة "${gameTitle}" في FunnyGame ⚡ ووصلت للمرحلة ${stageReached}! تقدر تفوتني ولا عقلك طافي؟ 🧠🔥\n\nتحداني والعب من هنا:\n${targetUrl}`;
+
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
       navigator.share({
-        title: `نتيجتي في FunnyGame: ${score}`,
+        title: `نتيجتي في لعبة ${gameTitle}: ${score} نقطة`,
         text: shareText,
-        url: 'https://funnygame.ly'
-      }).catch(() => {
+        url: targetUrl
+      }).catch((err) => {
+        if (err && err.name === 'AbortError') return;
         // Fallback to WhatsApp
-        window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+        if (typeof window !== 'undefined') {
+          window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+        }
       });
-    } else {
+    } else if (typeof window !== 'undefined') {
       window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
     }
   };
