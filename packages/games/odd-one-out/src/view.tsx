@@ -6,6 +6,59 @@ import type { OddOneOutQuestionPayload, OddOneOutAnswerInput, OddOneOutCell } fr
 import { GAME_SHAPES } from './shapes.js';
 import { sound, haptics } from '@funnygame/ui';
 
+// Helper for dynamic tile and grid styling based on dimensions
+const getGridStyles = (gridDim: number) => {
+  if (gridDim <= 3) {
+    return {
+      gapClass: 'gap-3 sm:gap-4',
+      cellRounded: 'rounded-2xl',
+      svgScale: 'w-[72%] h-[72%]',
+      cellBorder: 'border border-white/20',
+      cellBg: 'bg-gradient-to-br from-slate-800/90 to-slate-900/90 shadow-md',
+      questionMarkSize: 'text-2xl font-black text-amber-300'
+    };
+  }
+  if (gridDim === 4) {
+    return {
+      gapClass: 'gap-2 sm:gap-2.5',
+      cellRounded: 'rounded-xl',
+      svgScale: 'w-[75%] h-[75%]',
+      cellBorder: 'border border-white/15',
+      cellBg: 'bg-gradient-to-br from-slate-800/85 to-slate-900/85 shadow-sm',
+      questionMarkSize: 'text-xl font-black text-amber-300'
+    };
+  }
+  if (gridDim === 5) {
+    return {
+      gapClass: 'gap-1.5 sm:gap-2',
+      cellRounded: 'rounded-lg',
+      svgScale: 'w-[78%] h-[78%]',
+      cellBorder: 'border border-white/15',
+      cellBg: 'bg-slate-800/90 shadow-sm',
+      questionMarkSize: 'text-base font-black text-amber-300'
+    };
+  }
+  if (gridDim === 6) {
+    return {
+      gapClass: 'gap-1 sm:gap-1.5',
+      cellRounded: 'rounded-md',
+      svgScale: 'w-[82%] h-[82%]',
+      cellBorder: 'border border-white/10',
+      cellBg: 'bg-slate-800/90',
+      questionMarkSize: 'text-sm font-black text-amber-300'
+    };
+  }
+  // 7x7 and 8x8
+  return {
+    gapClass: 'gap-0.5 sm:gap-1',
+    cellRounded: 'rounded-sm sm:rounded-md',
+    svgScale: 'w-[86%] h-[86%]',
+    cellBorder: 'border border-white/10',
+    cellBg: 'bg-slate-800/90',
+    questionMarkSize: 'text-xs font-black text-amber-300'
+  };
+};
+
 export const OddOneOutView: React.FC<
   GameViewProps<OddOneOutQuestionPayload, OddOneOutAnswerInput>
 > = ({ question, onAnswer, locked }) => {
@@ -267,146 +320,222 @@ export const OddOneOutView: React.FC<
       )}
 
       {/* 2. Playing Area Container */}
-      <div className="flex-1 w-full max-w-[440px] mx-auto flex flex-col items-center justify-center gap-3">
-        {/* Grid 0 (Top or Main Grid) */}
-        <div
-          className={`w-full aspect-square max-h-[380px] p-2 bg-[#16181D] rounded-3xl border-2 transition-all relative overflow-hidden ${
-            payload.gridCount === 2 && activeDualGrid === 0
-              ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.3)] ring-2 ring-amber-400/40'
-              : 'border-white/10'
-          }`}
-        >
-          {payload.gridCount === 2 && (
-            <div className="absolute top-1 right-2 text-[10px] font-bold text-slate-400 z-20">
-              الشبكة 1 {activeDualGrid === 0 ? '👈 مطلوب الآن' : '✓ تم'}
-            </div>
-          )}
-
+      <div className="flex-1 w-full max-w-[540px] mx-auto flex flex-col items-center justify-center p-1 sm:p-2">
+        {payload.gridCount === 1 ? (
+          /* Single Grid (Stages 1 - 45) */
           <div
-            className="w-full h-full grid gap-1.5"
-            style={{
-              gridTemplateColumns: `repeat(${payload.gridDim}, minmax(0, 1fr))`,
-              gridTemplateRows: `repeat(${payload.gridDim}, minmax(0, 1fr))`
-            }}
+            className="w-full aspect-square max-w-[min(96vw,490px)] max-h-[min(65vh,490px)] p-3 sm:p-4 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 rounded-3xl border-2 border-slate-700/80 shadow-[0_10px_35px_rgba(0,0,0,0.7)] ring-1 ring-white/10 relative overflow-hidden flex items-center justify-center transition-all"
           >
-            {cellsGrid0.map((cell) => {
-              const cellKey = `0_${cell.cellIndex}`;
-              const isWrong = wrongCellKey === cellKey;
-              const isCorrect = correctCellKey === cellKey;
-              const shapeDef = GAME_SHAPES.find((s) => s.id === cell.shapeId) || GAME_SHAPES[0]!;
-              const isOddAndHinted = hintActive && cell.isOdd;
-
-              return (
-                <div
-                  key={cell.id}
-                  onPointerDown={() => handleCellTap(0, cell.cellIndex, cell.isOdd)}
-                  className={`w-full h-full rounded-xl flex items-center justify-center relative cursor-pointer select-none transition-all ${
-                    isCovered ? 'bg-[#1e222b] hover:bg-[#282d39]' : 'bg-[#1b1f27] hover:bg-[#232832]'
-                  } ${isWrong ? 'bg-rose-950/80 border-2 border-rose-500 animate-shake' : ''} ${
-                    isCorrect ? 'bg-emerald-950 border-2 border-emerald-400 ring-2 ring-emerald-400/60' : ''
-                  } ${isOddAndHinted ? 'ring-4 ring-amber-400 border-2 border-amber-300 animate-pulse' : ''} ${
-                    payload.motionMode === 'WIGGLE' && !isCovered ? 'animate-pulse' : ''
-                  }`}
-                >
-                  {isCovered ? (
-                    <span className="text-slate-600 text-xs font-black">?</span>
-                  ) : (
-                    <svg
-                      viewBox="0 0 100 100"
-                      className="w-[70%] h-[70%] transition-transform pointer-events-none drop-shadow"
-                      style={{
-                        transform: `rotate(${cell.rotationDeg}deg)`,
-                        fill: cell.colorHex
-                      }}
-                    >
-                      <path d={shapeDef.svgPath} />
-                    </svg>
-                  )}
-
-                  {/* Feedback Overlays */}
-                  {isWrong && (
-                    <div className="absolute inset-0 flex items-center justify-center text-rose-400 font-black text-xl">
-                      ✗
-                    </div>
-                  )}
-                  {isCorrect && (
-                    <div className="absolute inset-0 flex items-center justify-center text-emerald-300 font-black text-xl">
-                      ✓
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Grid 1 (Bottom Grid in Dual-Grid mode 46+) */}
-        {payload.gridCount === 2 && (
-          <div
-            className={`w-full aspect-square max-h-[380px] p-2 bg-[#16181D] rounded-3xl border-2 transition-all relative overflow-hidden ${
-              activeDualGrid === 1
-                ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.3)] ring-2 ring-amber-400/40'
-                : 'border-white/10'
-            }`}
-          >
-            <div className="absolute top-1 right-2 text-[10px] font-bold text-slate-400 z-20">
-              الشبكة 2 {activeDualGrid === 1 ? '👈 مطلوب الآن' : ''}
-            </div>
-
             <div
-              className="w-full h-full grid gap-1.5"
+              className={`w-full h-full grid ${getGridStyles(payload.gridDim).gapClass}`}
               style={{
                 gridTemplateColumns: `repeat(${payload.gridDim}, minmax(0, 1fr))`,
                 gridTemplateRows: `repeat(${payload.gridDim}, minmax(0, 1fr))`
               }}
             >
-              {cellsGrid1.map((cell) => {
-                const cellKey = `1_${cell.cellIndex}`;
+              {cellsGrid0.map((cell) => {
+                const cellKey = `0_${cell.cellIndex}`;
                 const isWrong = wrongCellKey === cellKey;
                 const isCorrect = correctCellKey === cellKey;
                 const shapeDef = GAME_SHAPES.find((s) => s.id === cell.shapeId) || GAME_SHAPES[0]!;
                 const isOddAndHinted = hintActive && cell.isOdd;
+                const styles = getGridStyles(payload.gridDim);
 
                 return (
                   <div
                     key={cell.id}
-                    onPointerDown={() => handleCellTap(1, cell.cellIndex, cell.isOdd)}
-                    className={`w-full h-full rounded-xl flex items-center justify-center relative cursor-pointer select-none transition-all ${
-                      isCovered ? 'bg-[#1e222b] hover:bg-[#282d39]' : 'bg-[#1b1f27] hover:bg-[#232832]'
-                    } ${isWrong ? 'bg-rose-950/80 border-2 border-rose-500 animate-shake' : ''} ${
-                      isCorrect ? 'bg-emerald-950 border-2 border-emerald-400 ring-2 ring-emerald-400/60' : ''
-                    } ${isOddAndHinted ? 'ring-4 ring-amber-400 border-2 border-amber-300 animate-pulse' : ''} ${
+                    onPointerDown={() => handleCellTap(0, cell.cellIndex, cell.isOdd)}
+                    className={`w-full h-full ${styles.cellRounded} ${styles.cellBorder} flex items-center justify-center relative cursor-pointer select-none transition-all active:scale-95 ${
+                      isCovered
+                        ? 'bg-slate-800 border-2 border-amber-400/40 animate-pulse'
+                        : `${styles.cellBg} hover:bg-slate-750`
+                    } ${isWrong ? 'bg-rose-950/90 border-2 border-rose-500 ring-2 ring-rose-500/50 animate-shake' : ''} ${
+                      isCorrect ? 'bg-emerald-950 border-2 border-emerald-400 ring-2 ring-emerald-400/70 scale-105' : ''
+                    } ${isOddAndHinted ? 'ring-4 ring-amber-400 border-2 border-amber-300 scale-105 animate-pulse' : ''} ${
                       payload.motionMode === 'WIGGLE' && !isCovered ? 'animate-pulse' : ''
                     }`}
                   >
                     {isCovered ? (
-                      <span className="text-slate-600 text-xs font-black">?</span>
+                      <span className={styles.questionMarkSize}>?</span>
                     ) : (
                       <svg
                         viewBox="0 0 100 100"
-                        className="w-[70%] h-[70%] transition-transform pointer-events-none drop-shadow"
+                        className={`${styles.svgScale} transition-transform pointer-events-none`}
                         style={{
                           transform: `rotate(${cell.rotationDeg}deg)`,
-                          fill: cell.colorHex
+                          fill: cell.colorHex,
+                          filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.5))'
                         }}
                       >
                         <path d={shapeDef.svgPath} />
                       </svg>
                     )}
 
+                    {/* Feedback Overlays */}
                     {isWrong && (
-                      <div className="absolute inset-0 flex items-center justify-center text-rose-400 font-black text-xl">
+                      <div className="absolute inset-0 flex items-center justify-center text-rose-400 font-black text-2xl drop-shadow-md">
                         ✗
                       </div>
                     )}
                     {isCorrect && (
-                      <div className="absolute inset-0 flex items-center justify-center text-emerald-300 font-black text-xl">
+                      <div className="absolute inset-0 flex items-center justify-center text-emerald-300 font-black text-2xl drop-shadow-md">
                         ✓
                       </div>
                     )}
                   </div>
                 );
               })}
+            </div>
+          </div>
+        ) : (
+          /* Dual Grids (Stages 46+) */
+          <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-3">
+            {/* Grid 0 (Left / First Grid) */}
+            <div
+              className={`w-full sm:w-1/2 aspect-square max-w-[260px] p-2 sm:p-2.5 bg-gradient-to-b from-slate-900 to-slate-950 rounded-2xl border-2 transition-all relative overflow-hidden flex items-center justify-center ${
+                activeDualGrid === 0
+                  ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.35)] ring-2 ring-amber-400/50'
+                  : 'border-white/15 opacity-80'
+              }`}
+            >
+              <div className="absolute top-1 right-2 text-[10px] font-bold text-amber-300 z-20">
+                الشبكة 1 {activeDualGrid === 0 ? '👈 مطلوب الآن' : '✓ تم'}
+              </div>
+
+              <div
+                className={`w-full h-full grid ${getGridStyles(payload.gridDim).gapClass}`}
+                style={{
+                  gridTemplateColumns: `repeat(${payload.gridDim}, minmax(0, 1fr))`,
+                  gridTemplateRows: `repeat(${payload.gridDim}, minmax(0, 1fr))`
+                }}
+              >
+                {cellsGrid0.map((cell) => {
+                  const cellKey = `0_${cell.cellIndex}`;
+                  const isWrong = wrongCellKey === cellKey;
+                  const isCorrect = correctCellKey === cellKey;
+                  const shapeDef = GAME_SHAPES.find((s) => s.id === cell.shapeId) || GAME_SHAPES[0]!;
+                  const isOddAndHinted = hintActive && cell.isOdd;
+                  const styles = getGridStyles(payload.gridDim);
+
+                  return (
+                    <div
+                      key={cell.id}
+                      onPointerDown={() => handleCellTap(0, cell.cellIndex, cell.isOdd)}
+                      className={`w-full h-full ${styles.cellRounded} ${styles.cellBorder} flex items-center justify-center relative cursor-pointer select-none transition-all active:scale-95 ${
+                        isCovered
+                          ? 'bg-slate-800 border-2 border-amber-400/40 animate-pulse'
+                          : `${styles.cellBg} hover:bg-slate-750`
+                      } ${isWrong ? 'bg-rose-950/90 border-2 border-rose-500 ring-2 ring-rose-500/50 animate-shake' : ''} ${
+                        isCorrect ? 'bg-emerald-950 border-2 border-emerald-400 ring-2 ring-emerald-400/70 scale-105' : ''
+                      } ${isOddAndHinted ? 'ring-4 ring-amber-400 border-2 border-amber-300 scale-105 animate-pulse' : ''} ${
+                        payload.motionMode === 'WIGGLE' && !isCovered ? 'animate-pulse' : ''
+                      }`}
+                    >
+                      {isCovered ? (
+                        <span className={styles.questionMarkSize}>?</span>
+                      ) : (
+                        <svg
+                          viewBox="0 0 100 100"
+                          className={`${styles.svgScale} transition-transform pointer-events-none`}
+                          style={{
+                            transform: `rotate(${cell.rotationDeg}deg)`,
+                            fill: cell.colorHex,
+                            filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.5))'
+                          }}
+                        >
+                          <path d={shapeDef.svgPath} />
+                        </svg>
+                      )}
+
+                      {/* Feedback Overlays */}
+                      {isWrong && (
+                        <div className="absolute inset-0 flex items-center justify-center text-rose-400 font-black text-xl">
+                          ✗
+                        </div>
+                      )}
+                      {isCorrect && (
+                        <div className="absolute inset-0 flex items-center justify-center text-emerald-300 font-black text-xl">
+                          ✓
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Grid 1 (Right / Second Grid) */}
+            <div
+              className={`w-full sm:w-1/2 aspect-square max-w-[260px] p-2 sm:p-2.5 bg-gradient-to-b from-slate-900 to-slate-950 rounded-2xl border-2 transition-all relative overflow-hidden flex items-center justify-center ${
+                activeDualGrid === 1
+                  ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.35)] ring-2 ring-amber-400/50'
+                  : 'border-white/15 opacity-80'
+              }`}
+            >
+              <div className="absolute top-1 right-2 text-[10px] font-bold text-amber-300 z-20">
+                الشبكة 2 {activeDualGrid === 1 ? '👈 مطلوب الآن' : ''}
+              </div>
+
+              <div
+                className={`w-full h-full grid ${getGridStyles(payload.gridDim).gapClass}`}
+                style={{
+                  gridTemplateColumns: `repeat(${payload.gridDim}, minmax(0, 1fr))`,
+                  gridTemplateRows: `repeat(${payload.gridDim}, minmax(0, 1fr))`
+                }}
+              >
+                {cellsGrid1.map((cell) => {
+                  const cellKey = `1_${cell.cellIndex}`;
+                  const isWrong = wrongCellKey === cellKey;
+                  const isCorrect = correctCellKey === cellKey;
+                  const shapeDef = GAME_SHAPES.find((s) => s.id === cell.shapeId) || GAME_SHAPES[0]!;
+                  const isOddAndHinted = hintActive && cell.isOdd;
+                  const styles = getGridStyles(payload.gridDim);
+
+                  return (
+                    <div
+                      key={cell.id}
+                      onPointerDown={() => handleCellTap(1, cell.cellIndex, cell.isOdd)}
+                      className={`w-full h-full ${styles.cellRounded} ${styles.cellBorder} flex items-center justify-center relative cursor-pointer select-none transition-all active:scale-95 ${
+                        isCovered
+                          ? 'bg-slate-800 border-2 border-amber-400/40 animate-pulse'
+                          : `${styles.cellBg} hover:bg-slate-750`
+                      } ${isWrong ? 'bg-rose-950/90 border-2 border-rose-500 ring-2 ring-rose-500/50 animate-shake' : ''} ${
+                        isCorrect ? 'bg-emerald-950 border-2 border-emerald-400 ring-2 ring-emerald-400/70 scale-105' : ''
+                      } ${isOddAndHinted ? 'ring-4 ring-amber-400 border-2 border-amber-300 scale-105 animate-pulse' : ''} ${
+                        payload.motionMode === 'WIGGLE' && !isCovered ? 'animate-pulse' : ''
+                      }`}
+                    >
+                      {isCovered ? (
+                        <span className={styles.questionMarkSize}>?</span>
+                      ) : (
+                        <svg
+                          viewBox="0 0 100 100"
+                          className={`${styles.svgScale} transition-transform pointer-events-none`}
+                          style={{
+                            transform: `rotate(${cell.rotationDeg}deg)`,
+                            fill: cell.colorHex,
+                            filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.5))'
+                          }}
+                        >
+                          <path d={shapeDef.svgPath} />
+                        </svg>
+                      )}
+
+                      {/* Feedback Overlays */}
+                      {isWrong && (
+                        <div className="absolute inset-0 flex items-center justify-center text-rose-400 font-black text-xl">
+                          ✗
+                        </div>
+                      )}
+                      {isCorrect && (
+                        <div className="absolute inset-0 flex items-center justify-center text-emerald-300 font-black text-xl">
+                          ✓
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

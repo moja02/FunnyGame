@@ -399,8 +399,10 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       pool = tauntsMid;
     }
     if (!pool || pool.length === 0) return 'أداء قوي! عاود توا واكسر رقمك القياسي ⚡';
-    const chosen = pool[Math.floor(Math.random() * pool.length)];
-    return chosen ?? 'أداء قوي! عاود توا واكسر رقمك القياسي ⚡';
+    const chosen = pool[Math.floor(Math.random() * pool.length)] || '';
+    return chosen
+      .replace(/\{stage\}/g, stage.toString())
+      .replace(/\{score\}/g, score.toLocaleString('en-US')) || 'أداء قوي! عاود توا واكسر رقمك القياسي ⚡';
   };
 
   // Unknown or uninstalled game fallback
@@ -430,7 +432,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
   const descriptionAr = module.content.howToPlay;
 
   return (
-    <main className="flex-1 flex flex-col justify-between select-none relative pb-6 max-w-[480px] w-full mx-auto">
+    <main className="flex-1 flex flex-col justify-between select-none relative pb-4 sm:pb-6 max-w-[540px] w-full mx-auto px-2 sm:px-3">
       {/* 1. Active Game HUD & Bars */}
       {gameState === 'playing' && (
         <>

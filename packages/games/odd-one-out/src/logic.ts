@@ -211,7 +211,7 @@ export class OddOneOutLogic implements GameLogic<OddOneOutQuestionPayload, OddOn
     const baseColorHex = BASE_PALETTE[rng.nextInt(0, BASE_PALETTE.length - 1)]!;
     const baseShapeList = diffType === 'ROTATION' ? NON_SYMMETRIC_SHAPES : GAME_SHAPES;
     const baseShape = baseShapeList[rng.nextInt(0, baseShapeList.length - 1)]!;
-    const baseRotation = (rng.nextInt(0, 3) * 90) % 360;
+    const baseRotation = s <= 4 ? 0 : ((rng.nextInt(0, 3) * 90) % 360);
 
     // Secondary shape for dual distractor
     let secondaryShape: ShapeDefinition = GAME_SHAPES.find((sh) => sh.id !== baseShape.id) || GAME_SHAPES[0]!;

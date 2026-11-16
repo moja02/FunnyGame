@@ -86,7 +86,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
       <div className="p-4 bg-slate-900 border border-amber-500/20 rounded-2xl mb-6 relative">
         <span className="text-2xl absolute -top-3 right-4">💬</span>
         <p className="text-sm font-bold text-amber-200/90 leading-relaxed pt-1">
-          &ldquo;{taunt}&rdquo;
+          &ldquo;{taunt.replace(/\{stage\}/g, stageReached.toString()).replace(/\{score\}/g, score.toLocaleString('en-US'))}&rdquo;
         </p>
       </div>
 
