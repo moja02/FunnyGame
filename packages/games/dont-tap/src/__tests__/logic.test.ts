@@ -6,24 +6,28 @@ import { evaluateItemAgainstRule, type ActiveRule, type FallingItem } from '../r
 describe("Don't Tap! Logic & Mechanics Verification", () => {
   const logic = new DontTapLogic();
 
-  it('guarantees accurate T_fall and T_spawn equations and human limits', () => {
+  it('guarantees accurate T_fall, T_spawn, and T_stage equations and human limits', () => {
     // Stage 1
     const cfg1 = logic.stageConfig(1);
     expect(cfg1.params.fallDurationMs).toBe(3200);
     expect(cfg1.params.spawnIntervalMs).toBe(950);
+    // T_stage = max(6.0, round_0.5(5 * 0.95 * 2.6 + 0)) = max(6.0, round_0.5(12.35)) = 12.5s = 12500ms
+    expect(cfg1.timeLimitMs).toBe(12500);
 
     // Stage 8
     const cfg8 = logic.stageConfig(8);
     // 3.2 - 0.09 * 7 = 3.2 - 0.63 = 2.57s = 2570ms
     expect(cfg8.params.fallDurationMs).toBe(2570);
 
-    // Stage 26+ (Floor limit: 0.95s = 950ms)
+    // Stage 26+ (Floor limits: T_fall = 0.95s, T_spawn = 0.38s, T_stage = 6.0s)
     const cfg26 = logic.stageConfig(26);
     expect(cfg26.params.fallDurationMs).toBe(950);
+    expect(cfg26.timeLimitMs).toBe(6000);
 
     const cfg70 = logic.stageConfig(70);
     expect(cfg70.params.fallDurationMs).toBe(950);
     expect(cfg70.params.spawnIntervalMs).toBe(380);
+    expect(cfg70.timeLimitMs).toBe(6000);
   });
 
   it('verifies rule evaluation across simple, compound, negation, and morphing', () => {
@@ -87,40 +91,118 @@ describe("Don't Tap! Logic & Mechanics Verification", () => {
     expect(evaluateItemAgainstRule(item, ruleRedCircle)).toBe(true);
   });
 
-  it('verifies scoring formula pts = 100 * v * k * m(s)', () => {
+  it('verifies scoring formula pts = Base * v * k * m(s) matching specification table', () => {
     const rng = createRng(12345);
-    const cfg = logic.stageConfig(2);
-    const q = logic.generate(rng, cfg, 0);
 
-    // Top catch: heightProgress = 0.0 -> v = 1.5, k = 1 (combo 2), m(2) = 1.1
-    // pts = 100 * 1.5 * 1 * 1.1 = 165
-    const ptsTop = logic.calculatePoints(
-      q,
+    // Example 1: Stage 2, Early catch at height 75% (heightProgress = 0.25), combo 2
+    // Base = 100, v = 1.0 + 0.5 * 0.75 = 1.375, k = 1, m = 1 + 0.1 * 1 = 1.1 -> 151 pts
+    const cfg2 = logic.stageConfig(2);
+    const q2 = logic.generate(rng, cfg2, 0);
+    const ptsEarly = logic.calculatePoints(
+      q2,
       {
         itemIndex: 0,
         action: 'TAP',
-        reactionTimeMs: 100,
-        heightProgress: 0.0,
-        activeRuleId: q.payload.initialRule.id
+        reactionTimeMs: 500,
+        heightProgress: 0.25,
+        activeRuleId: q2.payload.initialRule.id
       },
       2
     );
-    expect(ptsTop).toBe(165);
+    expect(ptsEarly).toBe(151);
 
-    // Bottom catch: heightProgress = 1.0 -> v = 1.0, k = 1, m(2) = 1.1
-    // pts = 100 * 1.0 * 1 * 1.1 = 110
-    const ptsBottom = logic.calculatePoints(
-      q,
+    // Example 2: Stage 2, Late catch at height 20% (heightProgress = 0.80), combo 0
+    // Base = 70, v = 1.0 + 0.5 * 0.20 = 1.100, k = 1, m = 1.1 -> 85 pts
+    const ptsLate = logic.calculatePoints(
+      q2,
       {
         itemIndex: 0,
         action: 'TAP',
+        reactionTimeMs: 1800,
+        heightProgress: 0.80,
+        activeRuleId: q2.payload.initialRule.id
+      },
+      0
+    );
+    expect(ptsLate).toBe(85);
+
+    // Example 3: Stage 32, Advanced catch at height 90% (heightProgress = 0.10), combo 15
+    // Base = 100, v = 1.0 + 0.5 * 0.90 = 1.450, k = 3, m = 3.4 + 0.15 * 7 = 4.45 -> 1936 pts
+    const cfg32 = logic.stageConfig(32);
+    const q32 = logic.generate(rng, cfg32, 0);
+    const ptsAdvanced = logic.calculatePoints(
+      q32,
+      {
+        itemIndex: 0,
+        action: 'TAP',
+        reactionTimeMs: 200,
+        heightProgress: 0.10,
+        activeRuleId: q32.payload.initialRule.id
+      },
+      15
+    );
+    expect(ptsAdvanced).toBe(1936);
+
+    // MISS returns -50 points
+    const ptsMiss = logic.calculatePoints(
+      q2,
+      {
+        itemIndex: 0,
+        action: 'MISS',
         reactionTimeMs: 2000,
         heightProgress: 1.0,
-        activeRuleId: q.payload.initialRule.id
-      },
-      2
+        activeRuleId: q2.payload.initialRule.id
+      }
     );
-    expect(ptsBottom).toBe(110);
+    expect(ptsMiss).toBe(-50);
+  });
+
+  it('verifies miss penalty rules and anti-AFK behavior', () => {
+    const rng = createRng(54321);
+    const cfg = logic.stageConfig(1);
+    const q = logic.generate(rng, cfg, 0);
+
+    // 1st miss: warning, breaks combo, costs 0 hearts
+    const verdict1stMiss = logic.evaluate(q, {
+      itemIndex: 0,
+      action: 'MISS',
+      reactionTimeMs: 3200,
+      heightProgress: 1.0,
+      activeRuleId: q.payload.initialRule.id,
+      consecutiveMisses: 1,
+      stageTotalMisses: 1,
+      isStageFirstMiss: true
+    });
+    expect(verdict1stMiss.correct).toBe(false);
+    expect(verdict1stMiss.breaksCombo).toBe(true);
+    expect(verdict1stMiss.heartCost).toBe(0);
+
+    // 2nd consecutive miss: costs 1 heart!
+    const verdict2ndMiss = logic.evaluate(q, {
+      itemIndex: 1,
+      action: 'MISS',
+      reactionTimeMs: 3200,
+      heightProgress: 1.0,
+      activeRuleId: q.payload.initialRule.id,
+      consecutiveMisses: 2,
+      stageTotalMisses: 2,
+      isStageFirstMiss: false
+    });
+    expect(verdict2ndMiss.correct).toBe(false);
+    expect(verdict2ndMiss.breaksCombo).toBe(true);
+    expect(verdict2ndMiss.heartCost).toBe(1);
+
+    // Stage timeout: costs 1 heart!
+    const verdictTimeout = logic.evaluate(q, {
+      itemIndex: 0,
+      action: 'STAGE_TIMEOUT',
+      reactionTimeMs: 12500,
+      heightProgress: 1.0,
+      activeRuleId: q.payload.initialRule.id
+    });
+    expect(verdictTimeout.correct).toBe(false);
+    expect(verdictTimeout.breaksCombo).toBe(true);
+    expect(verdictTimeout.heartCost).toBe(1);
   });
 
   it('guarantees 100% deterministic generation across 500 seeds', () => {

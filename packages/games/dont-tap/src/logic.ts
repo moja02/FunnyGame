@@ -36,12 +36,15 @@ export interface DontTapQuestionPayload {
 
 export interface DontTapAnswerInput {
   itemIndex: number;
-  action: 'TAP' | 'MISS' | 'PASS';
+  action: 'TAP' | 'MISS' | 'PASS' | 'STAGE_TIMEOUT';
   reactionTimeMs: number;
   heightProgress: number; // 0.0 at top, 1.0 at bottom
   activeRuleId: string;
   previousRuleId?: string;
   timeSinceRuleSwitchMs?: number;
+  isStageFirstMiss?: boolean;
+  consecutiveMisses?: number;
+  stageTotalMisses?: number;
 }
 
 export class DontTapLogic
@@ -101,14 +104,22 @@ export class DontTapLogic
       ruleDurationSec = Math.max(2.8, 3.8 - 0.02 * (s - 70));
     }
 
+    // Stage time limit T_stage = max(6.0, round_0.5(5 * T_spawn * 2.6 + E_stage))
+    const isBreathing = [6, 11, 16, 21, 31, 36, 41, 46].includes(s);
+    const extraStageSec = isBreathing ? 3.0 : 0.0;
+    const rawStageSec = 5 * (spawnIntervalMs / 1000) * 2.6 + extraStageSec;
+    const stageDurationSec = Math.max(6.0, Math.round(rawStageSec * 2) / 2);
+    const stageTimeLimitMs = Math.round(stageDurationSec * 1000);
+
     return {
       stage: s,
       tier,
-      timeLimitMs: fallDurationMs,
+      timeLimitMs: stageTimeLimitMs,
       isBoss,
       params: {
         fallDurationMs,
         spawnIntervalMs,
+        stageTimeLimitMs,
         ruleDurationMs: Math.round(ruleDurationSec * 1000),
         isSilentSwitch: s >= 20
       }
@@ -493,7 +504,7 @@ export class DontTapLogic
     q: Question<DontTapQuestionPayload>,
     answer: DontTapAnswerInput | null
   ): Verdict {
-    // If no answer input (timeout or unhandled event)
+    // If no answer input (unhandled event)
     if (!answer) {
       return {
         correct: false,
@@ -502,11 +513,29 @@ export class DontTapLogic
       };
     }
 
-    // 1. MISS action (target item hit bottom miss line)
-    if (answer.action === 'MISS') {
+    // 0. STAGE_TIMEOUT action (player ran out of stage time T_stage without collecting 5 required targets)
+    if (answer.action === 'STAGE_TIMEOUT') {
       return {
         correct: false,
-        heartCost: 0, // Miss breaks combo without losing heart
+        heartCost: 1,
+        breaksCombo: true
+      };
+    }
+
+    // 1. MISS action (target item hit bottom miss line)
+    if (answer.action === 'MISS') {
+      // 1st miss: warning, breaks combo, -50 points, 0 heart cost.
+      // 2nd consecutive miss OR 3rd miss in the same stage: costs 1 heart!
+      const isSecondConsecutive = answer.consecutiveMisses !== undefined && answer.consecutiveMisses >= 2;
+      const isThirdInStage = answer.stageTotalMisses !== undefined && answer.stageTotalMisses >= 3;
+      const isHeartLoss =
+        isSecondConsecutive ||
+        isThirdInStage ||
+        (answer.isStageFirstMiss === false && answer.consecutiveMisses === undefined);
+
+      return {
+        correct: false,
+        heartCost: isHeartLoss ? 1 : 0,
         breaksCombo: true
       };
     }
@@ -567,7 +596,7 @@ export class DontTapLogic
 
   /**
    * Unified Scoring Formula:
-   * pts = 100 * v * k * m(s)
+   * pts = Base * v * k * m(s)
    */
   calculatePoints(
     q: Question<DontTapQuestionPayload>,
@@ -575,6 +604,13 @@ export class DontTapLogic
     paramA?: number,
     paramB?: number
   ): number {
+    if (answer.action === 'MISS') {
+      return -50;
+    }
+    if (answer.action === 'STAGE_TIMEOUT' || answer.action === 'PASS') {
+      return 0;
+    }
+
     const s = q.stage;
 
     // Determine combo from parameters
@@ -584,6 +620,10 @@ export class DontTapLogic
     } else if (typeof paramA === 'number' && paramA <= 50) {
       combo = paramA;
     }
+
+    // Base: 100 in upper two-thirds (heightProgress <= 0.67), 70 in lower third
+    const isUpperTwoThirds = (answer.heightProgress || 0) <= 0.67;
+    const base = isUpperTwoThirds ? 100 : 70;
 
     // v: Catch height multiplier (1.0 at bottom to 1.5 at top)
     const heightRatio = Math.max(0, Math.min(1.0, 1.0 - (answer.heightProgress || 0)));
@@ -600,6 +640,6 @@ export class DontTapLogic
       m = 3.4 + 0.15 * (s - 25);
     }
 
-    return Math.round(this.basePoints * v * k * m);
+    return Math.round(base * v * k * m);
   }
 }

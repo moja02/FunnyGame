@@ -31,6 +31,11 @@ export const DontTapView: React.FC<
   const [liveNotice, setLiveNotice] = useState<string | null>(null);
   const [introDismissed, setIntroDismissed] = useState(!payload.introCardAr);
 
+  // Miss & Penalty States
+  const [missFlash, setMissFlash] = useState(false);
+  const [consecutiveMissDisplay, setConsecutiveMissDisplay] = useState(0);
+  const [stageTargetHits, setStageTargetHits] = useState(0);
+
   // Hint State
   const [hintActive, setHintActive] = useState(false);
   const [hintsAvailable, setHintsAvailable] = useState(1);
@@ -46,12 +51,16 @@ export const DontTapView: React.FC<
   const isInputLockedRef = useRef(false);
   const nextRuleIndexRef = useRef(0);
 
+  // Miss tracking refs
+  const consecutiveMissesRef = useRef(0);
+  const stageMissCountRef = useRef(0);
+
   // Sync ref with state
   useEffect(() => {
     activeRuleRef.current = activeRule;
   }, [activeRule]);
 
-  // 1. Setup / Reset on new Question
+  // 1. Setup / Reset on new Question / Stage
   useEffect(() => {
     activeRuleRef.current = payload.initialRule;
     setActiveRule(payload.initialRule);
@@ -61,6 +70,12 @@ export const DontTapView: React.FC<
     nextRuleIndexRef.current = 0;
     setIntroDismissed(!payload.introCardAr);
     setHintActive(false);
+
+    // Reset miss counters for the stage
+    consecutiveMissesRef.current = 0;
+    stageMissCountRef.current = 0;
+    setConsecutiveMissDisplay(0);
+    setStageTargetHits(0);
 
     // Initial entity spawn
     entitiesRef.current = [];
@@ -168,13 +183,38 @@ export const DontTapView: React.FC<
             1.0
           );
 
-          if (isTarget) {
-            // MISS: target shape reached bottom without being tapped!
+          // Check transition grace (500ms): if recently switched and not target under previous rule, pass cleanly
+          const isWithinSwitchGrace = (now - ruleSwitchTimeRef.current) <= 500;
+          const wasDistractorInPrevious = previousRuleRef.current
+            ? !evaluateItemAgainstRule(ent, previousRuleRef.current, 1.0)
+            : false;
+
+          if (isTarget && !(isWithinSwitchGrace && wasDistractorInPrevious)) {
+            // MISS: Required target shape reached bottom without being tapped!
             ent.isMissed = true;
-            sound.wrong();
-            haptics.light();
-            setLiveNotice('فاتك واحد! طار الكومبو 💨');
-            setTimeout(() => setLiveNotice(null), 1200);
+            consecutiveMissesRef.current += 1;
+            stageMissCountRef.current += 1;
+
+            setConsecutiveMissDisplay(Math.min(2, consecutiveMissesRef.current));
+            setMissFlash(true);
+            setTimeout(() => setMissFlash(false), 500);
+
+            const isSecondConsecutive = consecutiveMissesRef.current >= 2;
+            const isThirdInStage = stageMissCountRef.current >= 3;
+            const isHeartLoss = isSecondConsecutive || isThirdInStage;
+
+            if (isHeartLoss) {
+              sound.wrong();
+              haptics.error();
+              consecutiveMissesRef.current = 0; // Reset consecutive counter after heart cost
+              setConsecutiveMissDisplay(0);
+              setLiveNotice('فاتك المطلوب! طار قلب 💔');
+            } else {
+              sound.wrong();
+              haptics.light();
+              setLiveNotice('فاتك المطلوب! -50 نقطة وطارت السلسلة 💨');
+            }
+            setTimeout(() => setLiveNotice(null), 1500);
 
             onAnswer({
               itemIndex: ent.itemIndex,
@@ -183,10 +223,13 @@ export const DontTapView: React.FC<
               heightProgress: 1.0,
               activeRuleId: activeRuleRef.current.id,
               previousRuleId: previousRuleRef.current?.id,
-              timeSinceRuleSwitchMs: now - ruleSwitchTimeRef.current
+              timeSinceRuleSwitchMs: now - ruleSwitchTimeRef.current,
+              consecutiveMisses: isHeartLoss ? 2 : 1,
+              stageTotalMisses: stageMissCountRef.current,
+              isStageFirstMiss: !isHeartLoss
             });
           } else {
-            // PASS: distractor cleanly ignored -> correct behaviour!
+            // PASS: Distractor cleanly passed miss line -> correct behaviour!
             onAnswer({
               itemIndex: ent.itemIndex,
               action: 'PASS',
@@ -217,12 +260,18 @@ export const DontTapView: React.FC<
   const handleItemTap = useCallback(
     (entity: ActiveFallingEntity) => {
       if (locked || isInputLockedRef.current || entity.isHit || entity.isWrong) return;
+
+      const now = Date.now();
+      const reactionTime = now - entity.spawnEpochMs;
+
+      // Anti-Auto-Clicker: Reject superhuman clicks (< 150ms from spawn)
+      if (reactionTime < 150) return;
+
       isInputLockedRef.current = true;
       setTimeout(() => {
         isInputLockedRef.current = false;
       }, 70);
 
-      const now = Date.now();
       const timeSinceSwitch = now - ruleSwitchTimeRef.current;
 
       // Evaluate match (including 500ms grace window for previous rule)
@@ -244,27 +293,35 @@ export const DontTapView: React.FC<
         sound.correct();
         haptics.light();
 
+        // Reset consecutive miss warning upon any correct hit
+        consecutiveMissesRef.current = 0;
+        setConsecutiveMissDisplay(0);
+        setStageTargetHits((h) => Math.min(5, h + 1));
+
         onAnswer({
           itemIndex: entity.itemIndex,
           action: 'TAP',
-          reactionTimeMs: Math.max(10, now - entity.spawnEpochMs),
+          reactionTimeMs: Math.max(10, reactionTime),
           heightProgress: entity.currentYRatio,
           activeRuleId: activeRuleRef.current.id,
           previousRuleId: previousRuleRef.current?.id,
           timeSinceRuleSwitchMs: timeSinceSwitch
         });
       } else {
-        // Wrong Tap!
+        // Wrong Tap on Distractor!
         entity.isWrong = true;
         sound.wrong();
         haptics.error();
+
+        consecutiveMissesRef.current = 0;
+        setConsecutiveMissDisplay(0);
         setLiveNotice('قلنالك لا تضغط! راح قلب 💔');
-        setTimeout(() => setLiveNotice(null), 1200);
+        setTimeout(() => setLiveNotice(null), 1500);
 
         onAnswer({
           itemIndex: entity.itemIndex,
           action: 'TAP',
-          reactionTimeMs: Math.max(10, now - entity.spawnEpochMs),
+          reactionTimeMs: Math.max(10, reactionTime),
           heightProgress: entity.currentYRatio,
           activeRuleId: activeRuleRef.current.id,
           previousRuleId: previousRuleRef.current?.id,
@@ -320,7 +377,7 @@ export const DontTapView: React.FC<
   }, [locked, introDismissed, handleItemTap]);
 
   return (
-    <div className="w-full flex-1 flex flex-col justify-between select-none touch-none relative p-2 max-w-[520px] mx-auto h-full">
+    <div className="w-full flex-1 flex flex-col justify-between select-none touch-none relative p-2 max-w-[540px] mx-auto h-full">
       {/* Intro Rule Card Modal */}
       {!introDismissed && payload.introCardAr && (
         <div
@@ -342,8 +399,8 @@ export const DontTapView: React.FC<
         </div>
       )}
 
-      {/* 1. Rule Bar (10% Height) */}
-      <div className="w-full py-2.5 px-3 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border-2 border-amber-400/50 rounded-2xl mb-1 shadow-lg relative overflow-hidden flex flex-col justify-center">
+      {/* 1. Rule Bar */}
+      <div className="w-full py-2.5 px-3 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border-2 border-amber-400/50 rounded-2xl shadow-lg relative overflow-hidden flex flex-col justify-center">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xl">{activeRule.icon}</span>
@@ -378,13 +435,48 @@ export const DontTapView: React.FC<
         )}
       </div>
 
-      {/* 2. Live Message Bar (5% Height) */}
-      <div className="w-full h-6 flex items-center justify-center text-xs font-black text-amber-400/90 transition-opacity">
-        {liveNotice && <span className="animate-bounce">{liveNotice}</span>}
+      {/* 2. Dedicated Message & Status Bar (Fixed 32px - Never shifts or compresses the game frame) */}
+      <div className="w-full h-8 min-h-[32px] max-h-[32px] flex items-center justify-between px-3 my-1 rounded-xl bg-slate-950/70 border border-white/5 relative overflow-hidden">
+        {liveNotice ? (
+          <div className="flex items-center justify-center w-full gap-1.5 text-xs font-black text-amber-300 animate-fadeIn">
+            <span>{liveNotice}</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between w-full text-[11px] font-bold text-slate-400">
+            {/* Stage Targets Progress */}
+            <div className="flex items-center gap-1.5">
+              <span>الهدف:</span>
+              <div className="flex items-center gap-1">
+                {[0, 1, 2, 3, 4].map((dotIdx) => (
+                  <span
+                    key={dotIdx}
+                    className={`w-2 h-2 rounded-full transition-all ${
+                      dotIdx < stageTargetHits
+                        ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] scale-110'
+                        : 'bg-white/15'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Miss Warning Strike */}
+            <div
+              className={`flex items-center gap-1 transition-colors ${
+                consecutiveMissDisplay > 0
+                  ? 'text-rose-400 font-black animate-pulse'
+                  : 'text-slate-500'
+              }`}
+            >
+              <span>⚠️ إنذار التفويت:</span>
+              <span className="font-mono">{consecutiveMissDisplay}/2</span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 3. Falling Area (71% Height, 3 Lanes) */}
-      <div className="flex-1 w-full min-h-[420px] max-h-[580px] bg-gradient-to-b from-slate-950/80 via-slate-900/60 to-slate-950/90 rounded-3xl border-2 border-slate-800 shadow-2xl relative overflow-hidden flex">
+      {/* 3. Enlarged Falling Play Area (3 Lanes, Stable Geometry) */}
+      <div className="flex-1 w-full min-h-[520px] max-h-[min(78vh, 720px)] bg-gradient-to-b from-slate-950/95 via-slate-900/80 to-slate-950/95 rounded-3xl border-2 border-slate-700/80 shadow-[0_0_35px_rgba(0,0,0,0.8)] relative overflow-hidden flex">
         {/* 3 Vertical Lanes */}
         {[0, 1, 2].map((laneIdx) => (
           <div
@@ -401,9 +493,24 @@ export const DontTapView: React.FC<
         ))}
 
         {/* Miss Line at Bottom (88% height) */}
-        <div className="absolute bottom-8 left-0 right-0 border-b-2 border-dashed border-rose-500/30 z-10 flex items-center justify-between px-2 pointer-events-none">
-          <span className="text-[9px] font-bold text-rose-400/60">خط التفويت ⛔</span>
-          <span className="text-[9px] font-bold text-rose-400/60">MISS LINE</span>
+        <div
+          className={`absolute bottom-8 left-0 right-0 border-b-2 transition-all duration-200 z-10 flex items-center justify-between px-3 pointer-events-none ${
+            missFlash
+              ? 'border-rose-500 bg-rose-500/15 shadow-[0_0_25px_rgba(244,63,94,0.8)]'
+              : 'border-dashed border-rose-500/40'
+          }`}
+        >
+          <div className="flex items-center gap-2 text-[10px] font-black text-rose-400">
+            <span>خط التفويت ⛔</span>
+            {missFlash && (
+              <span className="text-rose-300 font-extrabold animate-bounce text-xs bg-rose-950/80 px-1.5 py-0.5 rounded border border-rose-500/50">
+                -50
+              </span>
+            )}
+          </div>
+          <span className="text-[9px] font-bold text-rose-400/60 uppercase tracking-wider">
+            MISS LINE
+          </span>
         </div>
 
         {/* Falling Entities */}
@@ -435,10 +542,12 @@ export const DontTapView: React.FC<
                 height: '84px'
               }}
             >
-              {/* Hitbox area with inner visual circle */}
+              {/* Hitbox area with inner visual shape */}
               <div
                 className={`w-full h-full flex items-center justify-center relative rounded-full ${
-                  isHintGlow ? 'ring-4 ring-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.8)] animate-pulse' : ''
+                  isHintGlow
+                    ? 'ring-4 ring-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.8)] animate-pulse'
+                    : ''
                 } ${ent.isHit ? 'scale-125 animate-ping' : ''} ${
                   ent.isWrong ? 'animate-shake' : ''
                 }`}

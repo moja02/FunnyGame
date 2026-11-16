@@ -211,7 +211,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     isLockedRef.current = false;
     setIsLocked(false);
 
-    const now = Date.now();
+    let now = Date.now();
     questionStartTimeRef.current = now;
 
     // Start requestAnimationFrame timer
@@ -228,7 +228,13 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       if (left <= 0) {
         // Timeout reached! Deduct heart & feedback
         if (!isLockedRef.current) {
-          handleAnswerRef.current(null);
+          const isCont = !!(module?.logic as any)?.isContinuous;
+          handleAnswerRef.current(isCont ? { action: 'STAGE_TIMEOUT' } : null);
+          if (isCont && heartsRef.current > 1) {
+            now = Date.now();
+            animFrameRef.current = requestAnimationFrame(tick);
+            return;
+          }
         }
       } else {
         animFrameRef.current = requestAnimationFrame(tick);
@@ -322,6 +328,12 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       if (verdict.heartCost > 0) {
         heartsRef.current = Math.max(0, heartsRef.current - verdict.heartCost);
         setHearts(heartsRef.current);
+      }
+
+      // Deduct points for MISS if applicable
+      if (answer?.action === 'MISS') {
+        scoreRef.current = Math.max(0, scoreRef.current - 50);
+        setScore(scoreRef.current);
       }
     }
 
@@ -509,9 +521,20 @@ export default function PlayClient({ gameId }: PlayClientProps) {
               <span>⚠️</span>
               <span>قواعد الجولة:</span>
             </div>
-            <div>• عندك 3 قلوب بس، كل غلطة أو نفاد وقت يطير قلب.</div>
-            <div>• الإجابة الصح تزيد الكومبو ($x1, x2, x3$) وتضاعف النقاط.</div>
-            <div>• كل 5 أسئلة تطلع مرحلة أصعب وأسرع.</div>
+            {gameId === 'dont-tap' || gameId === 'dont_tap' ? (
+              <>
+                <div>• اضغط على المطلوب بس: كل صيد صح يزيد الكومبو والنقاط.</div>
+                <div>• لا تضغط على الممنوع: أي لمسة لشكل غير مطابق تطير قلب 💔.</div>
+                <div>• التفويت يخصم 50 نقطة، والتفويت المتتالي الثاني يطير قلب!</div>
+                <div>• سباق مع الوقت: اجمع 5 أشكال مطلوبة قبل نفاد شريط المرحلة.</div>
+              </>
+            ) : (
+              <>
+                <div>• عندك 3 قلوب بس، كل غلطة أو نفاد وقت يطير قلب.</div>
+                <div>• الإجابة الصح تزيد الكومبو ($x1, x2, x3$) وتضاعف النقاط.</div>
+                <div>• كل 5 أسئلة تطلع مرحلة أصعب وأسرع.</div>
+              </>
+            )}
           </div>
 
           {personalBest > 0 && (
