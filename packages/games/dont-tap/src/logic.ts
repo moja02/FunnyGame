@@ -540,18 +540,14 @@ export class DontTapLogic
 
     // 1. MISS action (target item hit bottom miss line)
     if (answer.action === 'MISS') {
-      // 1st miss: warning, breaks combo, -50 points, 0 heart cost.
-      // 2nd consecutive miss OR 3rd miss in the same stage: costs 1 heart!
-      const isSecondConsecutive = answer.consecutiveMisses !== undefined && answer.consecutiveMisses >= 2;
+      // Specification Update 2:
+      // 1st or 2nd miss in stage: breaks combo only, updates miss indicator, 0 heart cost, 0 points deducted.
+      // 3rd miss in the same stage (consecutive or dispersed): costs 1 heart, resets stage miss counter to 0/3.
       const isThirdInStage = answer.stageTotalMisses !== undefined && answer.stageTotalMisses >= 3;
-      const isHeartLoss =
-        isSecondConsecutive ||
-        isThirdInStage ||
-        (answer.isStageFirstMiss === false && answer.consecutiveMisses === undefined);
 
       return {
         correct: false,
-        heartCost: isHeartLoss ? 1 : 0,
+        heartCost: isThirdInStage ? 1 : 0,
         breaksCombo: true
       };
     }
@@ -576,18 +572,18 @@ export class DontTapLogic
         ? q.payload.initialRule
         : q.payload.upcomingRules.find((r) => r.id === answer.activeRuleId) || q.payload.initialRule;
 
-    // Check 500ms grace window for recently switched rule
+    // Check 600ms grace window for recently switched rule
     if (
       answer.previousRuleId &&
       answer.timeSinceRuleSwitchMs !== undefined &&
-      answer.timeSinceRuleSwitchMs <= 500
+      answer.timeSinceRuleSwitchMs <= 600
     ) {
       const prevRule =
         q.payload.initialRule.id === answer.previousRuleId
           ? q.payload.initialRule
           : q.payload.upcomingRules.find((r) => r.id === answer.previousRuleId);
       if (prevRule && evaluateItemAgainstRule(item, prevRule, answer.heightProgress)) {
-        // Player tapped based on previous rule within 500ms grace window -> silently valid!
+        // Player tapped based on previous rule within 600ms grace window -> silently valid!
         return { correct: true, heartCost: 0, breaksCombo: false };
       }
     }
@@ -620,10 +616,7 @@ export class DontTapLogic
     paramA?: number,
     paramB?: number
   ): number {
-    if (answer.action === 'MISS') {
-      return -50;
-    }
-    if (answer.action === 'STAGE_TIMEOUT' || answer.action === 'PASS') {
+    if (answer.action === 'MISS' || answer.action === 'STAGE_TIMEOUT' || answer.action === 'PASS') {
       return 0;
     }
 
@@ -637,9 +630,8 @@ export class DontTapLogic
       combo = paramA;
     }
 
-    // Base: 100 in upper two-thirds (heightProgress <= 0.67), 70 in lower third
-    const isUpperTwoThirds = (answer.heightProgress || 0) <= 0.67;
-    const base = isUpperTwoThirds ? 100 : 70;
+    // Base: 100 constant points per caught target (no point deduction on miss)
+    const base = 100;
 
     // v: Catch height multiplier (1.0 at bottom to 1.5 at top)
     const heightRatio = Math.max(0, Math.min(1.0, 1.0 - (answer.heightProgress || 0)));

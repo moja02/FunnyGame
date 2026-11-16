@@ -335,12 +335,6 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         heartsRef.current = Math.max(0, heartsRef.current - verdict.heartCost);
         setHearts(heartsRef.current);
       }
-
-      // Deduct points for MISS if applicable
-      if (answer?.action === 'MISS') {
-        scoreRef.current = Math.max(0, scoreRef.current - 50);
-        setScore(scoreRef.current);
-      }
     }
 
     // In continuous action games, don't unmount or freeze view between hits
@@ -531,8 +525,8 @@ export default function PlayClient({ gameId }: PlayClientProps) {
               <>
                 <div>• اضغط على المطلوب بس: كل صيد صح يزيد الكومبو والنقاط.</div>
                 <div>• لا تضغط على الممنوع: أي لمسة لشكل غير مطابق تطير قلب 💔.</div>
-                <div>• التفويت يخصم 50 نقطة، والتفويت المتتالي الثاني يطير قلب!</div>
-                <div>• سباق مع الوقت: اجمع 5 أشكال مطلوبة قبل نفاد شريط المرحلة.</div>
+                <div>• تفويت المطلوب: يكسر الكومبو فقط، وتفويت 3 أشكال بالمرحلة يطير قلب!</div>
+                <div>• نافذة أمان 600ms عند تبديل القاعدة لحمايتك.</div>
               </>
             ) : (
               <>

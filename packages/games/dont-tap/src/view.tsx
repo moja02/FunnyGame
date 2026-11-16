@@ -35,7 +35,7 @@ export const DontTapView: React.FC<
 
   // Miss & Penalty States
   const [missFlash, setMissFlash] = useState(false);
-  const [consecutiveMissDisplay, setConsecutiveMissDisplay] = useState(0);
+  const [stageMissCountDisplay, setStageMissCountDisplay] = useState(0);
   const [stageTargetHits, setStageTargetHits] = useState(0);
 
   // Hint State
@@ -78,7 +78,7 @@ export const DontTapView: React.FC<
     consecutiveMissesRef.current = 0;
     stageMissCountRef.current = 0;
     targetHitsRef.current = 0;
-    setConsecutiveMissDisplay(0);
+    setStageMissCountDisplay(0);
     setStageTargetHits(0);
 
     // Initial entity spawn
@@ -217,26 +217,28 @@ export const DontTapView: React.FC<
             ent.isMissed = true;
             consecutiveMissesRef.current += 1;
             stageMissCountRef.current += 1;
+            const currentStageMisses = stageMissCountRef.current;
 
-            setConsecutiveMissDisplay(Math.min(2, consecutiveMissesRef.current));
             setMissFlash(true);
             setTimeout(() => setMissFlash(false), 500);
 
-            const isSecondConsecutive = consecutiveMissesRef.current >= 2;
-            const isThirdInStage = stageMissCountRef.current >= 3;
-            const isHeartLoss = isSecondConsecutive || isThirdInStage;
+            // Specification Update 2:
+            // 1. Miss 1 or 2 in stage: breaks combo only, updates miss indicator (1/3 then 2/3), no heart loss, no point deduction.
+            // 2. Miss 3 in same stage (consecutive or dispersed): loses 1 heart immediately, resets stage miss counter to 0/3.
+            const isHeartLoss = currentStageMisses >= 3;
 
             if (isHeartLoss) {
               sound.wrong();
               haptics.error();
               consecutiveMissesRef.current = 0; // Reset consecutive counter
-              stageMissCountRef.current = 0; // Reset stage miss counter so subsequent misses don't chain-kill hearts!
-              setConsecutiveMissDisplay(0);
-              setLiveNotice('فاتك المطلوب! طار قلب 💔');
+              stageMissCountRef.current = 0; // Reset stage miss counter to 0/3
+              setStageMissCountDisplay(0);
+              setLiveNotice('فاتك 3 أشكال! طار قلب 💔');
             } else {
               sound.wrong();
               haptics.light();
-              setLiveNotice('فاتك المطلوب! -50 نقطة وطارت السلسلة 💨');
+              setStageMissCountDisplay(currentStageMisses);
+              setLiveNotice('فاتك المطلوب! طار الكومبو 💨');
             }
             setTimeout(() => setLiveNotice(null), 1500);
 
@@ -248,9 +250,9 @@ export const DontTapView: React.FC<
               activeRuleId: activeRuleRef.current.id,
               previousRuleId: previousRuleRef.current?.id,
               timeSinceRuleSwitchMs: now - ruleSwitchTimeRef.current,
-              consecutiveMisses: isHeartLoss ? 2 : 1,
-              stageTotalMisses: stageMissCountRef.current,
-              isStageFirstMiss: !isHeartLoss
+              consecutiveMisses: consecutiveMissesRef.current,
+              stageTotalMisses: currentStageMisses,
+              isStageFirstMiss: currentStageMisses === 1
             });
           } else {
             // PASS: Distractor cleanly passed miss line -> correct behaviour!
@@ -294,14 +296,14 @@ export const DontTapView: React.FC<
       const reactionTime = Math.max(10, now - entity.spawnEpochMs);
       const timeSinceSwitch = now - ruleSwitchTimeRef.current;
 
-      // Evaluate match (including 500ms grace window for previous rule)
+      // Evaluate match (including 600ms grace window for previous rule)
       let isMatch = evaluateItemAgainstRule(
         entity,
         activeRuleRef.current,
         entity.currentYRatio
       );
 
-      if (!isMatch && previousRuleRef.current && timeSinceSwitch <= 500) {
+      if (!isMatch && previousRuleRef.current && timeSinceSwitch <= 600) {
         if (evaluateItemAgainstRule(entity, previousRuleRef.current, entity.currentYRatio)) {
           isMatch = true; // Grace window salvation!
         }
@@ -313,10 +315,9 @@ export const DontTapView: React.FC<
         sound.correct();
         haptics.light();
 
-        // Reset consecutive miss warning upon any correct hit
+        // Reset consecutive misses
         consecutiveMissesRef.current = 0;
         targetHitsRef.current += 1;
-        setConsecutiveMissDisplay(0);
         setStageTargetHits(Math.min(5, targetHitsRef.current));
 
         onAnswer({
@@ -335,7 +336,6 @@ export const DontTapView: React.FC<
         haptics.error();
 
         consecutiveMissesRef.current = 0;
-        setConsecutiveMissDisplay(0);
         setLiveNotice('قلنالك لا تضغط! راح قلب 💔');
         setTimeout(() => setLiveNotice(null), 1500);
 
@@ -485,16 +485,18 @@ export const DontTapView: React.FC<
               </div>
             </div>
 
-            {/* Miss Warning Strike */}
+            {/* Miss Warning Strike (Specification Update 2: 0/3, 1/3, 2/3) */}
             <div
-              className={`flex items-center gap-1 transition-colors ${
-                consecutiveMissDisplay > 0
-                  ? 'text-rose-400 font-black animate-pulse'
-                  : 'text-slate-500'
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-black transition-all ${
+                stageMissCountDisplay === 0
+                  ? 'text-slate-400 bg-white/5'
+                  : stageMissCountDisplay === 1
+                  ? 'text-amber-300 bg-amber-500/15 border border-amber-500/30'
+                  : 'text-rose-400 bg-rose-500/20 border border-rose-500/40 animate-pulse'
               }`}
             >
-              <span>⚠️ إنذار التفويت:</span>
-              <span className="font-mono">{consecutiveMissDisplay}/2</span>
+              <span>⚠️ تفويت:</span>
+              <span className="font-mono">{stageMissCountDisplay}/3</span>
             </div>
           </div>
         )}
@@ -517,23 +519,23 @@ export const DontTapView: React.FC<
           </div>
         ))}
 
-        {/* Miss Line at Bottom (88% height) */}
+        {/* Miss Line at Bottom (88% height) - Glowing & Pulsing per Spec Update 2 */}
         <div
           className={`absolute bottom-8 left-0 right-0 border-b-2 transition-all duration-200 z-10 flex items-center justify-between px-3 pointer-events-none ${
             missFlash
-              ? 'border-rose-500 bg-rose-500/15 shadow-[0_0_25px_rgba(244,63,94,0.8)]'
-              : 'border-dashed border-rose-500/40'
+              ? 'border-rose-400 bg-rose-500/25 shadow-[0_0_30px_rgba(244,63,94,0.9)]'
+              : 'border-rose-500/50 shadow-[0_0_12px_rgba(244,63,94,0.35)]'
           }`}
         >
           <div className="flex items-center gap-2 text-[10px] font-black text-rose-400">
             <span>خط التفويت ⛔</span>
             {missFlash && (
-              <span className="text-rose-300 font-extrabold animate-bounce text-xs bg-rose-950/80 px-1.5 py-0.5 rounded border border-rose-500/50">
-                -50
+              <span className="text-amber-300 font-extrabold animate-bounce text-xs bg-rose-950/90 px-2 py-0.5 rounded-md border border-amber-400/50">
+                طار الكومبو 💨
               </span>
             )}
           </div>
-          <span className="text-[9px] font-bold text-rose-400/60 uppercase tracking-wider">
+          <span className="text-[9px] font-bold text-rose-400/80 uppercase tracking-widest">
             MISS LINE
           </span>
         </div>

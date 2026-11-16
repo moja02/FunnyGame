@@ -111,20 +111,22 @@ describe("Don't Tap! Logic & Mechanics Verification", () => {
     );
     expect(ptsEarly).toBe(151);
 
-    // Example 2: Stage 2, Late catch at height 20% (heightProgress = 0.80), combo 0
-    // Base = 70, v = 1.0 + 0.5 * 0.20 = 1.100, k = 1, m = 1.1 -> 85 pts
-    const ptsLate = logic.calculatePoints(
-      q2,
+    // Example 2: Stage 14, Middle catch at height 80% (heightProgress = 0.20), combo 8
+    // Base = 100, v = 1.0 + 0.5 * 0.80 = 1.400, k = 2, m = 1 + 0.1 * 13 = 2.3 -> 644 pts
+    const cfg14 = logic.stageConfig(14);
+    const q14 = logic.generate(rng, cfg14, 0);
+    const ptsMiddle = logic.calculatePoints(
+      q14,
       {
         itemIndex: 0,
         action: 'TAP',
-        reactionTimeMs: 1800,
-        heightProgress: 0.80,
-        activeRuleId: q2.payload.initialRule.id
+        reactionTimeMs: 400,
+        heightProgress: 0.20,
+        activeRuleId: q14.payload.initialRule.id
       },
-      0
+      8
     );
-    expect(ptsLate).toBe(85);
+    expect(ptsMiddle).toBe(644);
 
     // Example 3: Stage 32, Advanced catch at height 90% (heightProgress = 0.10), combo 15
     // Base = 100, v = 1.0 + 0.5 * 0.90 = 1.450, k = 3, m = 3.4 + 0.15 * 7 = 4.45 -> 1936 pts
@@ -143,7 +145,7 @@ describe("Don't Tap! Logic & Mechanics Verification", () => {
     );
     expect(ptsAdvanced).toBe(1936);
 
-    // MISS returns -50 points
+    // MISS returns 0 points (Spec 2: لا يوجد خصم نقاط عند التفويت)
     const ptsMiss = logic.calculatePoints(
       q2,
       {
@@ -154,10 +156,10 @@ describe("Don't Tap! Logic & Mechanics Verification", () => {
         activeRuleId: q2.payload.initialRule.id
       }
     );
-    expect(ptsMiss).toBe(-50);
+    expect(ptsMiss).toBe(0);
   });
 
-  it('verifies miss penalty rules and anti-AFK behavior', () => {
+  it('verifies miss penalty rules and anti-AFK behavior (Spec Update 2)', () => {
     const rng = createRng(54321);
     const cfg = logic.stageConfig(1);
     const q = logic.generate(rng, cfg, 0);
@@ -177,7 +179,7 @@ describe("Don't Tap! Logic & Mechanics Verification", () => {
     expect(verdict1stMiss.breaksCombo).toBe(true);
     expect(verdict1stMiss.heartCost).toBe(0);
 
-    // 2nd consecutive miss: costs 1 heart!
+    // 2nd miss in stage: breaks combo only, costs 0 hearts!
     const verdict2ndMiss = logic.evaluate(q, {
       itemIndex: 1,
       action: 'MISS',
@@ -190,13 +192,44 @@ describe("Don't Tap! Logic & Mechanics Verification", () => {
     });
     expect(verdict2ndMiss.correct).toBe(false);
     expect(verdict2ndMiss.breaksCombo).toBe(true);
-    expect(verdict2ndMiss.heartCost).toBe(1);
+    expect(verdict2ndMiss.heartCost).toBe(0);
+
+    // 3rd miss in stage: costs 1 heart!
+    const verdict3rdMiss = logic.evaluate(q, {
+      itemIndex: 2,
+      action: 'MISS',
+      reactionTimeMs: 3200,
+      heightProgress: 1.0,
+      activeRuleId: q.payload.initialRule.id,
+      consecutiveMisses: 3,
+      stageTotalMisses: 3,
+      isStageFirstMiss: false
+    });
+    expect(verdict3rdMiss.correct).toBe(false);
+    expect(verdict3rdMiss.breaksCombo).toBe(true);
+    expect(verdict3rdMiss.heartCost).toBe(1);
+
+    // 600ms grace window on rule switch
+    const matchingPrevItem = q.payload.preGeneratedItems.find((it) =>
+      evaluateItemAgainstRule(it, q.payload.initialRule, 0.3)
+    )!;
+    const verdictGrace = logic.evaluate(q, {
+      itemIndex: matchingPrevItem.itemIndex,
+      action: 'TAP',
+      reactionTimeMs: 250,
+      heightProgress: 0.3,
+      activeRuleId: 'other_rule',
+      previousRuleId: q.payload.initialRule.id,
+      timeSinceRuleSwitchMs: 580 // within 600ms
+    });
+    expect(verdictGrace.correct).toBe(true);
+    expect(verdictGrace.heartCost).toBe(0);
 
     // Stage timeout: costs 1 heart!
     const verdictTimeout = logic.evaluate(q, {
       itemIndex: 0,
       action: 'STAGE_TIMEOUT',
-      reactionTimeMs: 12500,
+      reactionTimeMs: 24000,
       heightProgress: 1.0,
       activeRuleId: q.payload.initialRule.id
     });
