@@ -254,7 +254,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     const logic = module.logic;
     const isContinuous = !!(logic as any).isContinuous;
 
-    if (!isContinuous && isLockedRef.current) return;
+    if (isLockedRef.current) return;
 
     if (!isContinuous) {
       isLockedRef.current = true;
@@ -341,6 +341,10 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     // In continuous action games, don't unmount or freeze view between hits
     if (isContinuous) {
       if (heartsRef.current <= 0) {
+        // Lock inputs immediately to drop any subsequent taps
+        isLockedRef.current = true;
+        setIsLocked(true);
+
         if (animFrameRef.current) {
           cancelAnimationFrame(animFrameRef.current);
           animFrameRef.current = null;
@@ -360,8 +364,11 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         }
         setGameOverTaunt(selectedTaunt);
 
-        setGameState('gameover');
-        submitRun(scoreRef.current);
+        // 500ms micro-pause to show zero hearts / red flash and prevent instant tap bleed-through
+        setTimeout(() => {
+          setGameState('gameover');
+          submitRun(scoreRef.current);
+        }, 500);
       }
       return;
     }

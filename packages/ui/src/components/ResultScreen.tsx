@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 export interface ResultScreenProps {
   score: number;
@@ -25,7 +25,33 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
 }) => {
   const isNewBest = personalBestScore !== undefined && score > personalBestScore;
 
+  // 700ms interaction cooldown on mount to prevent mobile tap bleed-through
+  const [canInteract, setCanInteract] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCanInteract(true);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handlePlayAgain = () => {
+    if (!canInteract) return;
+    onPlayAgain();
+  };
+
+  const handleGoHome = () => {
+    if (!canInteract) return;
+    onGoHome();
+  };
+
+  const handleLeaderboard = () => {
+    if (!canInteract || !onViewLeaderboard) return;
+    onViewLeaderboard();
+  };
+
   const handleShare = () => {
+    if (!canInteract) return;
     let targetUrl = shareUrl;
     if (!targetUrl && typeof window !== 'undefined') {
       targetUrl = window.location.href;
@@ -90,12 +116,17 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         </p>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex flex-col gap-3">
+      {/* Action Buttons with 700ms bleed-through protection */}
+      <div
+        className={`flex flex-col gap-3 transition-opacity duration-300 ${
+          canInteract ? 'opacity-100' : 'opacity-80 pointer-events-none'
+        }`}
+      >
         {/* Play Again (Primary CTA) */}
         <button
-          onClick={onPlayAgain}
-          className="w-full h-14 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-lg shadow-[0_5px_0_#c2410c] active:translate-y-1 active:shadow-[0_2px_0_#c2410c] transition-all flex items-center justify-center gap-2"
+          onClick={handlePlayAgain}
+          disabled={!canInteract}
+          className="w-full h-14 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-lg shadow-[0_5px_0_#c2410c] active:translate-y-1 active:shadow-[0_2px_0_#c2410c] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
         >
           <span>🔥</span>
           <span>مرة زيادة بس</span>
@@ -104,7 +135,8 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         {/* Share Button */}
         <button
           onClick={handleShare}
-          className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-[0_4px_0_#065f46] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2"
+          disabled={!canInteract}
+          className="w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-[0_4px_0_#065f46] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
         >
           <span>📲</span>
           <span>تحدّى أصحابك على واتساب</span>
@@ -113,8 +145,9 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         {/* Leaderboard Button */}
         {onViewLeaderboard && (
           <button
-            onClick={onViewLeaderboard}
-            className="w-full h-11 rounded-2xl bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/40 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+            onClick={handleLeaderboard}
+            disabled={!canInteract}
+            className="w-full h-11 rounded-2xl bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/40 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed"
           >
             <span>🏆</span>
             <span>لوحة صدارة اللعبة</span>
@@ -123,8 +156,9 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
 
         {/* Home Button */}
         <button
-          onClick={onGoHome}
-          className="w-full h-10 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white font-bold text-xs transition-colors"
+          onClick={handleGoHome}
+          disabled={!canInteract}
+          className="w-full h-10 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white font-bold text-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
         >
           العودة للرئيسية ◀
         </button>
