@@ -11,23 +11,23 @@ describe("Don't Tap! Logic & Mechanics Verification", () => {
     const cfg1 = logic.stageConfig(1);
     expect(cfg1.params.fallDurationMs).toBe(3200);
     expect(cfg1.params.spawnIntervalMs).toBe(950);
-    // T_stage = max(6.0, round_0.5(5 * 0.95 * 2.6 + 0)) = max(6.0, round_0.5(12.35)) = 12.5s = 12500ms
-    expect(cfg1.timeLimitMs).toBe(12500);
+    // T_stage = max(16.0, round_0.5(5 * 0.95 * 3.5 + 3.2 + 4.0)) = 24.0s = 24000ms
+    expect(cfg1.timeLimitMs).toBe(24000);
 
     // Stage 8
     const cfg8 = logic.stageConfig(8);
     // 3.2 - 0.09 * 7 = 3.2 - 0.63 = 2.57s = 2570ms
     expect(cfg8.params.fallDurationMs).toBe(2570);
 
-    // Stage 26+ (Floor limits: T_fall = 0.95s, T_spawn = 0.38s, T_stage = 6.0s)
+    // Stage 26+ (Floor limits: T_fall = 0.95s, T_spawn = 0.38s, T_stage = 16.0s)
     const cfg26 = logic.stageConfig(26);
     expect(cfg26.params.fallDurationMs).toBe(950);
-    expect(cfg26.timeLimitMs).toBe(6000);
+    expect(cfg26.timeLimitMs).toBe(16000);
 
     const cfg70 = logic.stageConfig(70);
     expect(cfg70.params.fallDurationMs).toBe(950);
     expect(cfg70.params.spawnIntervalMs).toBe(380);
-    expect(cfg70.timeLimitMs).toBe(6000);
+    expect(cfg70.timeLimitMs).toBe(16000);
   });
 
   it('verifies rule evaluation across simple, compound, negation, and morphing', () => {

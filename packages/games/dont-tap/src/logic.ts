@@ -104,11 +104,11 @@ export class DontTapLogic
       ruleDurationSec = Math.max(2.8, 3.8 - 0.02 * (s - 70));
     }
 
-    // Stage time limit T_stage = max(6.0, round_0.5(5 * T_spawn * 2.6 + E_stage))
+    // Fair human stage duration: 5 targets * T_spawn * 3.5 + T_fall + human buffer
     const isBreathing = [6, 11, 16, 21, 31, 36, 41, 46].includes(s);
-    const extraStageSec = isBreathing ? 3.0 : 0.0;
-    const rawStageSec = 5 * (spawnIntervalMs / 1000) * 2.6 + extraStageSec;
-    const stageDurationSec = Math.max(6.0, Math.round(rawStageSec * 2) / 2);
+    const extraStageSec = isBreathing ? 4.0 : 0.0;
+    const rawStageSec = 5 * (spawnIntervalMs / 1000) * 3.5 + (fallDurationMs / 1000) + 4.0 + extraStageSec;
+    const stageDurationSec = Math.max(16.0, Math.round(rawStageSec * 2) / 2);
     const stageTimeLimitMs = Math.round(stageDurationSec * 1000);
 
     return {
@@ -174,7 +174,7 @@ export class DontTapLogic
     return {
       index: qIndex,
       stage: s,
-      timeLimitMs: fallDurationMs,
+      timeLimitMs: cfg.timeLimitMs,
       payload: {
         stage: s,
         tier: cfg.tier,
@@ -436,6 +436,22 @@ export class DontTapLogic
         }
         consecutiveNonMatches = 0;
       } else {
+        // Enforce true distractor: must NOT match rule condition
+        if (rule.colorId && !rule.shapeId) {
+          const nonMatchingColors = DONT_TAP_COLORS.filter((c) => c.id !== rule.colorId);
+          color = rng.pick(nonMatchingColors);
+        } else if (rule.shapeId && !rule.colorId) {
+          const nonMatchingShapes = DONT_TAP_SHAPES.filter((s) => s.id !== rule.shapeId);
+          shape = rng.pick(nonMatchingShapes);
+        } else if (rule.colorId && rule.shapeId) {
+          if (rng.next() > 0.5) {
+            const nonMatchingColors = DONT_TAP_COLORS.filter((c) => c.id !== rule.colorId);
+            color = rng.pick(nonMatchingColors);
+          } else {
+            const nonMatchingShapes = DONT_TAP_SHAPES.filter((s) => s.id !== rule.shapeId);
+            shape = rng.pick(nonMatchingShapes);
+          }
+        }
         consecutiveNonMatches++;
       }
 

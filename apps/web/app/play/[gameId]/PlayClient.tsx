@@ -219,7 +219,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       cancelAnimationFrame(animFrameRef.current);
     }
 
-    const duration = q.timeLimitMs;
+    const isCont = !!(logic as any).isContinuous;
+    const introGraceMs = isCont && (q.payload as any)?.introCardAr ? 2500 : 0;
+    const duration = q.timeLimitMs + introGraceMs;
     const tick = () => {
       const elapsed = Date.now() - now;
       const left = Math.max(0, duration - elapsed);
@@ -228,9 +230,8 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       if (left <= 0) {
         // Timeout reached! Deduct heart & feedback
         if (!isLockedRef.current) {
-          const isCont = !!(module?.logic as any)?.isContinuous;
           handleAnswerRef.current(isCont ? { action: 'STAGE_TIMEOUT' } : null);
-          if (isCont && heartsRef.current > 1) {
+          if (isCont && heartsRef.current > 0) {
             now = Date.now();
             animFrameRef.current = requestAnimationFrame(tick);
             return;
@@ -283,6 +284,11 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     setLastVerdict(verdict);
 
     if (verdict.correct) {
+      // If answer is a passive PASS (distractor cleanly passed), do not count as a target hit or award points/combo
+      if (answer?.action === 'PASS') {
+        return;
+      }
+
       sound.correct();
       haptics.light();
       correctCountRef.current += 1;

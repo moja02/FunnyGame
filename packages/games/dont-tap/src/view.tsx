@@ -9,6 +9,8 @@ import { sound, haptics } from '@funnygame/ui';
 
 interface ActiveFallingEntity extends FallingItem {
   spawnEpochMs: number;
+  spawnRuleId: string;
+  spawnRuleTarget: boolean; // Was this item evaluated as a target when it spawned?
   currentYRatio: number; // 0.0 to 1.0
   currentLane: 0 | 1 | 2;
   hasMorphed: boolean;
@@ -54,6 +56,7 @@ export const DontTapView: React.FC<
   // Miss tracking refs
   const consecutiveMissesRef = useRef(0);
   const stageMissCountRef = useRef(0);
+  const targetHitsRef = useRef(0);
 
   // Sync ref with state
   useEffect(() => {
@@ -74,6 +77,7 @@ export const DontTapView: React.FC<
     // Reset miss counters for the stage
     consecutiveMissesRef.current = 0;
     stageMissCountRef.current = 0;
+    targetHitsRef.current = 0;
     setConsecutiveMissDisplay(0);
     setStageTargetHits(0);
 
@@ -81,6 +85,19 @@ export const DontTapView: React.FC<
     entitiesRef.current = [];
     setFallingEntities([]);
   }, [question.index, payload]);
+
+  // Auto-dismiss intro card after 2.0s
+  useEffect(() => {
+    if (!introDismissed && payload.introCardAr) {
+      const t = setTimeout(() => {
+        setIntroDismissed(true);
+        ruleSwitchTimeRef.current = Date.now();
+        lastSpawnEpochRef.current = Date.now();
+      }, 2000);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [introDismissed, payload.introCardAr]);
 
   // 2. Rule Transition Scheduler
   useEffect(() => {
@@ -134,9 +151,13 @@ export const DontTapView: React.FC<
         nextItemSpawnIndexRef.current += 1;
         lastSpawnEpochRef.current = now;
 
+        const spawnRuleTarget = evaluateItemAgainstRule(itemTemplate, activeRuleRef.current, 0);
+
         const newEntity: ActiveFallingEntity = {
           ...itemTemplate,
           spawnEpochMs: now,
+          spawnRuleId: activeRuleRef.current.id,
+          spawnRuleTarget,
           currentYRatio: 0,
           currentLane: itemTemplate.lane,
           hasMorphed: false
@@ -176,20 +197,22 @@ export const DontTapView: React.FC<
         }
 
         if (progress >= 1.0) {
-          // Hit Miss Line!
-          const isTarget = evaluateItemAgainstRule(
-            ent,
-            activeRuleRef.current,
-            1.0
-          );
+          // If stage target quota (5) was already reached, all remaining shapes pass safely!
+          if (targetHitsRef.current >= 5) {
+            continue;
+          }
 
-          // Check transition grace (500ms): if recently switched and not target under previous rule, pass cleanly
-          const isWithinSwitchGrace = (now - ruleSwitchTimeRef.current) <= 500;
-          const wasDistractorInPrevious = previousRuleRef.current
-            ? !evaluateItemAgainstRule(ent, previousRuleRef.current, 1.0)
-            : false;
+          // Determine if this item was genuinely a required target for the player:
+          // If it spawned under an older rule, it is ONLY a miss if it was ALREADY a target when it spawned!
+          // This completely prevents distractors from turning into phantom misses when rules switch!
+          let isMissedTarget = false;
+          if (ent.spawnRuleId !== activeRuleRef.current.id) {
+            isMissedTarget = ent.spawnRuleTarget && evaluateItemAgainstRule(ent, activeRuleRef.current, 1.0);
+          } else {
+            isMissedTarget = evaluateItemAgainstRule(ent, activeRuleRef.current, 1.0);
+          }
 
-          if (isTarget && !(isWithinSwitchGrace && wasDistractorInPrevious)) {
+          if (isMissedTarget) {
             // MISS: Required target shape reached bottom without being tapped!
             ent.isMissed = true;
             consecutiveMissesRef.current += 1;
@@ -206,7 +229,8 @@ export const DontTapView: React.FC<
             if (isHeartLoss) {
               sound.wrong();
               haptics.error();
-              consecutiveMissesRef.current = 0; // Reset consecutive counter after heart cost
+              consecutiveMissesRef.current = 0; // Reset consecutive counter
+              stageMissCountRef.current = 0; // Reset stage miss counter so subsequent misses don't chain-kill hearts!
               setConsecutiveMissDisplay(0);
               setLiveNotice('فاتك المطلوب! طار قلب 💔');
             } else {
@@ -261,17 +285,13 @@ export const DontTapView: React.FC<
     (entity: ActiveFallingEntity) => {
       if (locked || isInputLockedRef.current || entity.isHit || entity.isWrong) return;
 
-      const now = Date.now();
-      const reactionTime = now - entity.spawnEpochMs;
-
-      // Anti-Auto-Clicker: Reject superhuman clicks (< 150ms from spawn)
-      if (reactionTime < 150) return;
-
       isInputLockedRef.current = true;
       setTimeout(() => {
         isInputLockedRef.current = false;
-      }, 70);
+      }, 35);
 
+      const now = Date.now();
+      const reactionTime = Math.max(10, now - entity.spawnEpochMs);
       const timeSinceSwitch = now - ruleSwitchTimeRef.current;
 
       // Evaluate match (including 500ms grace window for previous rule)
@@ -295,13 +315,14 @@ export const DontTapView: React.FC<
 
         // Reset consecutive miss warning upon any correct hit
         consecutiveMissesRef.current = 0;
+        targetHitsRef.current += 1;
         setConsecutiveMissDisplay(0);
-        setStageTargetHits((h) => Math.min(5, h + 1));
+        setStageTargetHits(Math.min(5, targetHitsRef.current));
 
         onAnswer({
           itemIndex: entity.itemIndex,
           action: 'TAP',
-          reactionTimeMs: Math.max(10, reactionTime),
+          reactionTimeMs: reactionTime,
           heightProgress: entity.currentYRatio,
           activeRuleId: activeRuleRef.current.id,
           previousRuleId: previousRuleRef.current?.id,
@@ -321,7 +342,7 @@ export const DontTapView: React.FC<
         onAnswer({
           itemIndex: entity.itemIndex,
           action: 'TAP',
-          reactionTimeMs: Math.max(10, reactionTime),
+          reactionTimeMs: reactionTime,
           heightProgress: entity.currentYRatio,
           activeRuleId: activeRuleRef.current.id,
           previousRuleId: previousRuleRef.current?.id,
@@ -381,7 +402,11 @@ export const DontTapView: React.FC<
       {/* Intro Rule Card Modal */}
       {!introDismissed && payload.introCardAr && (
         <div
-          onClick={() => setIntroDismissed(true)}
+          onClick={() => {
+            setIntroDismissed(true);
+            ruleSwitchTimeRef.current = Date.now();
+            lastSpawnEpochRef.current = Date.now();
+          }}
           className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center animate-fadeIn cursor-pointer"
         >
           <div className="w-16 h-16 rounded-2xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-3xl mb-3 animate-bounce">
