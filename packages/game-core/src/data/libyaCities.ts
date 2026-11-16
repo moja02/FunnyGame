@@ -539,7 +539,7 @@ export const LIBYA_CITIES: LibyaCity[] = [
   },
 
   // ==========================================
-  // إقليم الجنوب (14 مدينة/منطقة)
+  // إقليم الجنوب (32 مدينة/منطقة — يشمل بلديات وقرى وادي الشاطئ الـ 19)
   // ==========================================
   {
     id: 'ly_sabha',
@@ -568,14 +568,177 @@ export const LIBYA_CITIES: LibyaCity[] = [
     lat: 25.9156,
     lng: 13.9183,
   },
+  // --- بلديات وقرى وادي الشاطئ (19 منطقة) ---
   {
-    id: 'ly_brak_shati',
+    id: 'ly_brak_alshati',
     name_ar: 'براك الشاطئ',
-    name_en: 'Brak Shati',
+    name_en: 'Brak Al-Shati',
     region: 'south',
-    aliases: ['براك', 'وادي الشاطئ', 'أدري', 'القيرة', 'محروقة'],
+    aliases: ['براك', 'وادي الشاطئ', 'الشاطئ', 'الزوية', 'آقار', 'محروقة', 'تاروت'],
     lat: 27.5494,
     lng: 14.2714,
+  },
+  {
+    id: 'ly_alqarada_alshati',
+    name_ar: 'القرضة الشاطئ',
+    name_en: 'Al-Qarada Al-Shati',
+    region: 'south',
+    aliases: ['القرضة', 'وادي الشاطئ', 'الشاطئ', 'قيرة', 'زلواز', 'الحطية', 'اشكدة', 'ققم', 'ققوم', 'تامزاوة'],
+    lat: 27.56,
+    lng: 14.18,
+  },
+  {
+    id: 'ly_idri_alshati',
+    name_ar: 'أدري الشاطئ',
+    name_en: 'Idri Al-Shati',
+    region: 'south',
+    aliases: ['أدري', 'ادري', 'وادي الشاطئ', 'الشاطئ', 'تامسكت', 'ونزريك', 'وينزريك', 'برقن', 'قطة', 'تمسان', 'تينيسان', 'الدبدب'],
+    lat: 27.53,
+    lng: 13.04,
+  },
+  {
+    id: 'ly_qira',
+    name_ar: 'قيرة',
+    name_en: 'Qira',
+    region: 'south',
+    aliases: ['قيرة الشاطئ', 'وادي الشاطئ', 'الشاطئ', 'القيرة'],
+    lat: 27.565,
+    lng: 14.22,
+  },
+  {
+    id: 'ly_ishkada',
+    name_ar: 'اشكدة',
+    name_en: 'Ishkada',
+    region: 'south',
+    aliases: ['إشكدة', 'اشكدة الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.575,
+    lng: 14.15,
+  },
+  {
+    id: 'ly_aqar_alshati',
+    name_ar: 'آقار الشاطئ',
+    name_en: 'Aqar Al-Shati',
+    region: 'south',
+    aliases: ['آقار', 'اقار', 'اقار الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.545,
+    lng: 14.295,
+  },
+  {
+    id: 'ly_mahruqah',
+    name_ar: 'محروقة',
+    name_en: 'Mahruqah',
+    region: 'south',
+    aliases: ['المحروقة', 'محروقة الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.54,
+    lng: 14.32,
+  },
+  {
+    id: 'ly_alzawiya_alshati',
+    name_ar: 'الزوية الشاطئ',
+    name_en: 'Al-Zawiya Al-Shati',
+    region: 'south',
+    aliases: ['الزوية', 'زوية الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.552,
+    lng: 14.26,
+  },
+  {
+    id: 'ly_tarut',
+    name_ar: 'تاروت',
+    name_en: 'Tarut',
+    region: 'south',
+    aliases: ['تاروت الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.535,
+    lng: 14.35,
+  },
+  {
+    id: 'ly_quttah',
+    name_ar: 'قطة',
+    name_en: 'Quttah',
+    region: 'south',
+    aliases: ['قطة الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.525,
+    lng: 13.2,
+  },
+  {
+    id: 'ly_barqan',
+    name_ar: 'برقن',
+    name_en: 'Barqan',
+    region: 'south',
+    aliases: ['برقن الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.52,
+    lng: 13.15,
+  },
+  {
+    id: 'ly_wanzarik',
+    name_ar: 'ونزريك',
+    name_en: 'Wanzarik',
+    region: 'south',
+    aliases: ['ونزريك الشاطئ', 'وينزريك', 'وينزريك الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.515,
+    lng: 13.1,
+  },
+  {
+    id: 'ly_tamaskat',
+    name_ar: 'تامسكت',
+    name_en: 'Tamaskat',
+    region: 'south',
+    aliases: ['تامسكت الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.528,
+    lng: 13.07,
+  },
+  {
+    id: 'ly_zalwaz',
+    name_ar: 'زلواز',
+    name_en: 'Zalwaz',
+    region: 'south',
+    aliases: ['زلواز الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.555,
+    lng: 14.195,
+  },
+  {
+    id: 'ly_alhatiyah',
+    name_ar: 'الحطية',
+    name_en: 'Al-Hatiyah',
+    region: 'south',
+    aliases: ['حطية الشاطئ', 'الحطية الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.562,
+    lng: 14.165,
+  },
+  {
+    id: 'ly_qaqam',
+    name_ar: 'ققم',
+    name_en: 'Qaqam',
+    region: 'south',
+    aliases: ['ققم الشاطئ', 'ققوم', 'ققوم الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.57,
+    lng: 14.17,
+  },
+  {
+    id: 'ly_tamzawah',
+    name_ar: 'تامزاوة',
+    name_en: 'Tamzawah',
+    region: 'south',
+    aliases: ['تامزاوة الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.558,
+    lng: 14.21,
+  },
+  {
+    id: 'ly_tamsan',
+    name_ar: 'تمسان',
+    name_en: 'Tamsan',
+    region: 'south',
+    aliases: ['تمسان الشاطئ', 'تينيسان', 'تينيسان الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.522,
+    lng: 13.12,
+  },
+  {
+    id: 'ly_aldabdeb',
+    name_ar: 'الدبدب',
+    name_en: 'Al-Dabdeb',
+    region: 'south',
+    aliases: ['الدبدب الشاطئ', 'وادي الشاطئ', 'الشاطئ'],
+    lat: 27.51,
+    lng: 13.01,
   },
   {
     id: 'ly_ghat',
@@ -670,7 +833,7 @@ export const LIBYA_CITIES: LibyaCity[] = [
 ];
 
 /**
- * Normalizes text for clean search (removes diacritics, unifies alef, taa marbuta).
+ * Normalizes text for clean search (removes diacritics, unifies alef, taa marbuta, yaa/hamza).
  */
 export function normalizeLibyaSearchText(str: string): string {
   return str
@@ -678,17 +841,46 @@ export function normalizeLibyaSearchText(str: string): string {
     .toLowerCase()
     .replace(/[أإآ]/g, 'ا')
     .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي')
-    .replace(/[\u064B-\u065F]/g, '');
+    .replace(/[ىئ]/g, 'ي')
+    .replace(/ؤ/g, 'و')
+    .replace(/[\u064B-\u065F\u0640]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * Calculates search relevance score to place direct name matches at the top.
+ */
+function getCitySearchScore(city: LibyaCity, q: string): number {
+  const normName = normalizeLibyaSearchText(city.name_ar);
+  const normEn = city.name_en.toLowerCase();
+
+  // Exact name match -> highest priority
+  if (normName === q || normEn === q) return 100;
+
+  // Name starts with query
+  if (normName.startsWith(q) || normEn.startsWith(q)) return 80;
+
+  // Name contains query
+  if (normName.includes(q) || normEn.includes(q)) return 60;
+
+  // Exact alias match
+  if (city.aliases.some((al) => normalizeLibyaSearchText(al) === q)) return 50;
+
+  // Alias starts with query
+  if (city.aliases.some((al) => normalizeLibyaSearchText(al).startsWith(q))) return 40;
+
+  // Alias contains query / English contains query
+  return 20;
 }
 
 /**
  * Searches Libyan cities by Arabic name, English name, or aliases (neighborhoods/districts).
+ * Sorts direct matches to the top.
  */
 export function searchLibyaCities(query: string, regionFilter: 'all' | LibyaRegion = 'all'): LibyaCity[] {
   const normalizedQuery = normalizeLibyaSearchText(query);
 
-  return LIBYA_CITIES.filter((city) => {
+  const matched = LIBYA_CITIES.filter((city) => {
     // Region check
     if (regionFilter !== 'all' && city.region !== regionFilter) {
       return false;
@@ -708,15 +900,29 @@ export function searchLibyaCities(query: string, regionFilter: 'all' | LibyaRegi
       return true;
     }
 
-    // Match aliases (districts, neighborhoods)
+    // Match aliases (districts, sub-areas, municipalities)
     return city.aliases.some((alias) => normalizeLibyaSearchText(alias).includes(normalizedQuery));
+  });
+
+  if (!normalizedQuery) {
+    return matched;
+  }
+
+  // Sort by relevance: direct / exact matches first
+  return matched.sort((a, b) => {
+    const scoreA = getCitySearchScore(a, normalizedQuery);
+    const scoreB = getCitySearchScore(b, normalizedQuery);
+    return scoreB - scoreA;
   });
 }
 
 /**
- * Gets city by unique ID.
+ * Gets city by unique ID (supports legacy backwards-compatible IDs).
  */
 export function getCityById(id: string): LibyaCity | undefined {
+  if (id === 'ly_brak_shati') {
+    return LIBYA_CITIES.find((c) => c.id === 'ly_brak_alshati');
+  }
   return LIBYA_CITIES.find((c) => c.id === id);
 }
 
