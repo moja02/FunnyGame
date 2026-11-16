@@ -1,0 +1,18 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "jsx": "react-jsx",
+    "composite": true,
+    "paths": {
+      "@funnygame/game-core": ["../../game-core/src/index.ts"],
+      "@funnygame/ui": ["../../ui/src/index.ts"]
+    }
+  },
+  "references": [
+    { "path": "../../game-core" },
+    { "path": "../../ui" }
+  ],
+  "include": ["src/**/*"]
+}

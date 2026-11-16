@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { serverRegistry } from '@funnygame/game-core';
 import '@funnygame/game-color-trap';
+import '@funnygame/game-odd-one-out';
 import { getSupabaseServerClient } from '@/lib/supabase-server';
 
 export async function POST(req: Request) {
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
     }
 
     // Verify game exists in server registry (or allow known registered game IDs)
-    if (!serverRegistry.has(gameId) && gameId !== 'time-duel' && gameId !== 'speed-math' && gameId !== 'matrix-memory' && gameId !== 'color-trap') {
+    if (!serverRegistry.has(gameId) && gameId !== 'time-duel' && gameId !== 'speed-math' && gameId !== 'matrix-memory' && gameId !== 'color-trap' && gameId !== 'odd-one-out' && gameId !== 'odd_one_out') {
       return NextResponse.json({ error: `Game '${gameId}' is not registered` }, { status: 404 });
     }
 

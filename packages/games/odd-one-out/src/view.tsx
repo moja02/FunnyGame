@@ -1,0 +1,416 @@
+'use client';
+
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import type { GameViewProps } from '@funnygame/game-core';
+import type { OddOneOutQuestionPayload, OddOneOutAnswerInput, OddOneOutCell } from './logic.js';
+import { GAME_SHAPES } from './shapes.js';
+import { sound, haptics } from '@funnygame/ui';
+
+export const OddOneOutView: React.FC<
+  GameViewProps<OddOneOutQuestionPayload, OddOneOutAnswerInput>
+> = ({ question, onAnswer, locked }) => {
+  const { payload } = question;
+
+  // Local state
+  const [cellsGrid0, setCellsGrid0] = useState<OddOneOutCell[]>(payload.grids[0] || []);
+  const [cellsGrid1, setCellsGrid1] = useState<OddOneOutCell[]>(payload.grids[1] || []);
+  const [isCovered, setIsCovered] = useState(false);
+  const [activeDualGrid, setActiveDualGrid] = useState<number>(payload.rhythmOrder[0]);
+  const [wrongCellKey, setWrongCellKey] = useState<string | null>(null);
+  const [correctCellKey, setCorrectCellKey] = useState<string | null>(null);
+  const [showPenaltyFlash, setShowPenaltyFlash] = useState(false);
+  const [introDismissed, setIntroDismissed] = useState(!payload.introCardAr);
+
+  // Hint tracker (3 consecutive first-touch correct gives 1 hint)
+  const [consecutiveFirstTouch, setConsecutiveFirstTouch] = useState(0);
+  const [hintsAvailable, setHintsAvailable] = useState(0);
+  const [hintActive, setHintActive] = useState(false);
+  const hasWrongTapInQuestionRef = useRef(false);
+
+  const questionStartTimeRef = useRef(Date.now());
+  const isAnsweredRef = useRef(false);
+  const dualGridHitsRef = useRef<number[]>([]);
+
+  // 1. Reset & Setup on new question
+  useEffect(() => {
+    setCellsGrid0(payload.grids[0] || []);
+    setCellsGrid1(payload.grids[1] || []);
+    setIsCovered(false);
+    setActiveDualGrid(payload.rhythmOrder[0]);
+    setWrongCellKey(null);
+    setCorrectCellKey(null);
+    setShowPenaltyFlash(false);
+    setHintActive(false);
+    hasWrongTapInQuestionRef.current = false;
+    isAnsweredRef.current = false;
+    dualGridHitsRef.current = [];
+    questionStartTimeRef.current = Date.now();
+
+    // Intro card auto-dismiss after 1.8s
+    if (payload.introCardAr) {
+      setIntroDismissed(false);
+      const introTimer = setTimeout(() => {
+        setIntroDismissed(true);
+      }, 1800);
+      return () => clearTimeout(introTimer);
+    } else {
+      setIntroDismissed(true);
+    }
+
+    // Flash / Hide timer
+    if (payload.hideAfterMs) {
+      const hideTimer = setTimeout(() => {
+        setIsCovered(true);
+      }, payload.hideAfterMs);
+      return () => clearTimeout(hideTimer);
+    }
+    return undefined;
+  }, [question.index, payload]);
+
+  // 2. Handle Scheduled Cell Swaps
+  useEffect(() => {
+    if (!payload.scheduledSwaps || payload.scheduledSwaps.length === 0) return;
+
+    const timers: NodeJS.Timeout[] = [];
+    payload.scheduledSwaps.forEach((sw) => {
+      const timer = setTimeout(() => {
+        if (sw.gridIndex === 0) {
+          setCellsGrid0((prev) => {
+            const copy = [...prev];
+            const temp = copy[sw.cellA];
+            copy[sw.cellA] = copy[sw.cellB]!;
+            copy[sw.cellB] = temp!;
+            return copy;
+          });
+        } else if (sw.gridIndex === 1) {
+          setCellsGrid1((prev) => {
+            const copy = [...prev];
+            const temp = copy[sw.cellA];
+            copy[sw.cellA] = copy[sw.cellB]!;
+            copy[sw.cellB] = temp!;
+            return copy;
+          });
+        }
+      }, sw.tMs);
+      timers.push(timer);
+    });
+
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+    };
+  }, [question.index, payload.scheduledSwaps]);
+
+  // 3. Pointer Down Tap Handler
+  const handleCellTap = useCallback(
+    (gridIdx: number, cellIdx: number, isOdd: boolean) => {
+      if (locked || isAnsweredRef.current) return;
+
+      const now = Date.now();
+      const tMs = now - questionStartTimeRef.current;
+      const cellKey = `${gridIdx}_${cellIdx}`;
+
+      // In dual grid mode, player must hit the active grid first
+      if (payload.gridCount === 2 && gridIdx !== activeDualGrid) {
+        sound.wrong();
+        haptics.error();
+        setWrongCellKey(cellKey);
+        setShowPenaltyFlash(true);
+        setTimeout(() => setWrongCellKey(null), 180);
+        setTimeout(() => setShowPenaltyFlash(false), 800);
+        return;
+      }
+
+      if (isOdd) {
+        // HIT!
+        sound.correct();
+        haptics.light();
+        setCorrectCellKey(cellKey);
+
+        if (payload.gridCount === 2 && dualGridHitsRef.current.length === 0) {
+          // First grid solved! Switch to second grid
+          dualGridHitsRef.current.push(gridIdx);
+          const nextGrid = payload.rhythmOrder.find((g) => g !== gridIdx) ?? 1;
+          setActiveDualGrid(nextGrid);
+          return;
+        }
+
+        // Entire question solved!
+        isAnsweredRef.current = true;
+
+        // Hint award calculation: 3 clean consecutive questions = 1 hint
+        if (!hasWrongTapInQuestionRef.current && !hintActive) {
+          const nextStreak = consecutiveFirstTouch + 1;
+          if (nextStreak >= 3) {
+            setHintsAvailable((h) => Math.min(1, h + 1));
+            setConsecutiveFirstTouch(0);
+          } else {
+            setConsecutiveFirstTouch(nextStreak);
+          }
+        } else {
+          setConsecutiveFirstTouch(0);
+        }
+
+        setTimeout(() => {
+          onAnswer({
+            gridIndex: gridIdx,
+            cellIndex: cellIdx,
+            tMs,
+            hintUsed: hintActive
+          });
+        }, 200);
+      } else {
+        // WRONG CELL TOUCH: -2.0s penalty
+        hasWrongTapInQuestionRef.current = true;
+        setConsecutiveFirstTouch(0);
+        sound.wrong();
+        haptics.error();
+
+        setWrongCellKey(cellKey);
+        setShowPenaltyFlash(true);
+        setTimeout(() => setWrongCellKey(null), 180);
+        setTimeout(() => setShowPenaltyFlash(false), 800);
+      }
+    },
+    [
+      locked,
+      payload.gridCount,
+      activeDualGrid,
+      payload.rhythmOrder,
+      hintActive,
+      consecutiveFirstTouch,
+      onAnswer
+    ]
+  );
+
+  // 4. Use Hint
+  const handleUseHint = () => {
+    if (hintsAvailable <= 0 || hintActive || locked) return;
+    setHintsAvailable((h) => Math.max(0, h - 1));
+    setHintActive(true);
+    sound.countdown();
+  };
+
+  // Keyboard shortcut listener (Space = hint, 1-9 for 3x3 cells)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (locked || isAnsweredRef.current) return;
+      if (e.key === ' ' || e.key.toLowerCase() === 'h') {
+        handleUseHint();
+      } else if (payload.gridDim === 3 && payload.gridCount === 1) {
+        const num = parseInt(e.key, 10);
+        if (num >= 1 && num <= 9) {
+          const target = cellsGrid0[num - 1];
+          if (target) handleCellTap(0, num - 1, target.isOdd);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [locked, cellsGrid0, payload.gridDim, payload.gridCount, handleCellTap]);
+
+  return (
+    <div className="w-full flex-1 flex flex-col justify-between select-none touch-none relative p-1 sm:p-2">
+      {/* Intro Rule Card Modal (if new stage mechanic) */}
+      {!introDismissed && payload.introCardAr && (
+        <div
+          onClick={() => setIntroDismissed(true)}
+          className="absolute inset-0 z-50 bg-slate-950/85 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center animate-fadeIn cursor-pointer"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-3xl mb-3 animate-bounce">
+            💡
+          </div>
+          <div className="text-xs font-bold text-amber-400 mb-1">آلية جديدة في المرحلة {payload.stage}</div>
+          <h2 className="text-lg font-black text-white max-w-xs leading-relaxed mb-4">
+            {payload.introCardAr}
+          </h2>
+          <div className="text-[11px] font-bold text-slate-400 px-3 py-1 bg-white/10 rounded-full">
+            المس الشاشة للبدء ◀
+          </div>
+        </div>
+      )}
+
+      {/* 1. Rule & Guidance Bar */}
+      <div className="py-2 px-3 bg-slate-900/95 border border-amber-400/30 rounded-2xl mb-2 flex items-center justify-between shadow-md">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">👁️</span>
+          <div className="text-xs sm:text-sm font-black text-amber-300">
+            {payload.guidanceTextAr}
+          </div>
+        </div>
+
+        {/* Hint button & meter */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleUseHint}
+            disabled={hintsAvailable <= 0 || hintActive}
+            className={`px-2.5 py-1 rounded-xl text-xs font-black flex items-center gap-1 transition-all ${
+              hintsAvailable > 0 && !hintActive
+                ? 'bg-amber-400 text-slate-950 shadow-md animate-pulse hover:bg-amber-300 cursor-pointer'
+                : 'bg-white/5 text-slate-500 border border-white/5 cursor-not-allowed'
+            }`}
+          >
+            <span>💡</span>
+            <span>تلميح</span>
+            <span className="text-[10px] px-1 rounded bg-black/20">
+              {hintsAvailable > 0 ? '1' : `${consecutiveFirstTouch}/3`}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Floating Penalty Indicator (-2.0s) */}
+      {showPenaltyFlash && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 px-3 py-1 bg-rose-600 text-white font-black text-sm rounded-full shadow-lg animate-bounce border border-rose-300">
+          -2.0s ⏱️ خطأ!
+        </div>
+      )}
+
+      {/* 2. Playing Area Container */}
+      <div className="flex-1 w-full max-w-[440px] mx-auto flex flex-col items-center justify-center gap-3">
+        {/* Grid 0 (Top or Main Grid) */}
+        <div
+          className={`w-full aspect-square max-h-[380px] p-2 bg-[#16181D] rounded-3xl border-2 transition-all relative overflow-hidden ${
+            payload.gridCount === 2 && activeDualGrid === 0
+              ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.3)] ring-2 ring-amber-400/40'
+              : 'border-white/10'
+          }`}
+        >
+          {payload.gridCount === 2 && (
+            <div className="absolute top-1 right-2 text-[10px] font-bold text-slate-400 z-20">
+              الشبكة 1 {activeDualGrid === 0 ? '👈 مطلوب الآن' : '✓ تم'}
+            </div>
+          )}
+
+          <div
+            className="w-full h-full grid gap-1.5"
+            style={{
+              gridTemplateColumns: `repeat(${payload.gridDim}, minmax(0, 1fr))`,
+              gridTemplateRows: `repeat(${payload.gridDim}, minmax(0, 1fr))`
+            }}
+          >
+            {cellsGrid0.map((cell) => {
+              const cellKey = `0_${cell.cellIndex}`;
+              const isWrong = wrongCellKey === cellKey;
+              const isCorrect = correctCellKey === cellKey;
+              const shapeDef = GAME_SHAPES.find((s) => s.id === cell.shapeId) || GAME_SHAPES[0]!;
+              const isOddAndHinted = hintActive && cell.isOdd;
+
+              return (
+                <div
+                  key={cell.id}
+                  onPointerDown={() => handleCellTap(0, cell.cellIndex, cell.isOdd)}
+                  className={`w-full h-full rounded-xl flex items-center justify-center relative cursor-pointer select-none transition-all ${
+                    isCovered ? 'bg-[#1e222b] hover:bg-[#282d39]' : 'bg-[#1b1f27] hover:bg-[#232832]'
+                  } ${isWrong ? 'bg-rose-950/80 border-2 border-rose-500 animate-shake' : ''} ${
+                    isCorrect ? 'bg-emerald-950 border-2 border-emerald-400 ring-2 ring-emerald-400/60' : ''
+                  } ${isOddAndHinted ? 'ring-4 ring-amber-400 border-2 border-amber-300 animate-pulse' : ''} ${
+                    payload.motionMode === 'WIGGLE' && !isCovered ? 'animate-pulse' : ''
+                  }`}
+                >
+                  {isCovered ? (
+                    <span className="text-slate-600 text-xs font-black">?</span>
+                  ) : (
+                    <svg
+                      viewBox="0 0 100 100"
+                      className="w-[70%] h-[70%] transition-transform pointer-events-none drop-shadow"
+                      style={{
+                        transform: `rotate(${cell.rotationDeg}deg)`,
+                        fill: cell.colorHex
+                      }}
+                    >
+                      <path d={shapeDef.svgPath} />
+                    </svg>
+                  )}
+
+                  {/* Feedback Overlays */}
+                  {isWrong && (
+                    <div className="absolute inset-0 flex items-center justify-center text-rose-400 font-black text-xl">
+                      ✗
+                    </div>
+                  )}
+                  {isCorrect && (
+                    <div className="absolute inset-0 flex items-center justify-center text-emerald-300 font-black text-xl">
+                      ✓
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Grid 1 (Bottom Grid in Dual-Grid mode 46+) */}
+        {payload.gridCount === 2 && (
+          <div
+            className={`w-full aspect-square max-h-[380px] p-2 bg-[#16181D] rounded-3xl border-2 transition-all relative overflow-hidden ${
+              activeDualGrid === 1
+                ? 'border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.3)] ring-2 ring-amber-400/40'
+                : 'border-white/10'
+            }`}
+          >
+            <div className="absolute top-1 right-2 text-[10px] font-bold text-slate-400 z-20">
+              الشبكة 2 {activeDualGrid === 1 ? '👈 مطلوب الآن' : ''}
+            </div>
+
+            <div
+              className="w-full h-full grid gap-1.5"
+              style={{
+                gridTemplateColumns: `repeat(${payload.gridDim}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${payload.gridDim}, minmax(0, 1fr))`
+              }}
+            >
+              {cellsGrid1.map((cell) => {
+                const cellKey = `1_${cell.cellIndex}`;
+                const isWrong = wrongCellKey === cellKey;
+                const isCorrect = correctCellKey === cellKey;
+                const shapeDef = GAME_SHAPES.find((s) => s.id === cell.shapeId) || GAME_SHAPES[0]!;
+                const isOddAndHinted = hintActive && cell.isOdd;
+
+                return (
+                  <div
+                    key={cell.id}
+                    onPointerDown={() => handleCellTap(1, cell.cellIndex, cell.isOdd)}
+                    className={`w-full h-full rounded-xl flex items-center justify-center relative cursor-pointer select-none transition-all ${
+                      isCovered ? 'bg-[#1e222b] hover:bg-[#282d39]' : 'bg-[#1b1f27] hover:bg-[#232832]'
+                    } ${isWrong ? 'bg-rose-950/80 border-2 border-rose-500 animate-shake' : ''} ${
+                      isCorrect ? 'bg-emerald-950 border-2 border-emerald-400 ring-2 ring-emerald-400/60' : ''
+                    } ${isOddAndHinted ? 'ring-4 ring-amber-400 border-2 border-amber-300 animate-pulse' : ''} ${
+                      payload.motionMode === 'WIGGLE' && !isCovered ? 'animate-pulse' : ''
+                    }`}
+                  >
+                    {isCovered ? (
+                      <span className="text-slate-600 text-xs font-black">?</span>
+                    ) : (
+                      <svg
+                        viewBox="0 0 100 100"
+                        className="w-[70%] h-[70%] transition-transform pointer-events-none drop-shadow"
+                        style={{
+                          transform: `rotate(${cell.rotationDeg}deg)`,
+                          fill: cell.colorHex
+                        }}
+                      >
+                        <path d={shapeDef.svgPath} />
+                      </svg>
+                    )}
+
+                    {isWrong && (
+                      <div className="absolute inset-0 flex items-center justify-center text-rose-400 font-black text-xl">
+                        ✗
+                      </div>
+                    )}
+                    {isCorrect && (
+                      <div className="absolute inset-0 flex items-center justify-center text-emerald-300 font-black text-xl">
+                        ✓
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

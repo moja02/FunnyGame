@@ -48,11 +48,21 @@ const allGames: GameItem[] = [
     stages: '70+ مرحلة'
   },
   {
+    id: 'odd-one-out',
+    title: 'الشاذ الغريب',
+    ability: 'speed',
+    abilityName: 'السرعة والتركيز',
+    icon: '👁️',
+    description: 'امسح الشبكة بسرعة واكتشف الرمز الوحيد المختلف في الشكل أو اللون أو الزاوية!',
+    status: 'ready',
+    stages: '70+ مرحلة'
+  },
+  {
     id: 'hawk-eye',
     title: 'عين الصقر',
     ability: 'speed',
     abilityName: 'السرعة والتركيز',
-    icon: '👁️',
+    icon: '🦅',
     description: 'ردة فعل بصرية خاطفة لرصد العنصر المختلف في جزء من الثانية.',
     status: 'soon',
     stages: '70+ مرحلة'

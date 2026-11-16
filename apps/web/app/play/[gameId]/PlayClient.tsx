@@ -26,6 +26,7 @@ import {
   haptics
 } from '@funnygame/ui';
 import '@funnygame/game-color-trap';
+import '@funnygame/game-odd-one-out';
 
 interface PlayClientProps {
   gameId: string;
@@ -275,13 +276,18 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       setCombo(streakRef.current);
 
       const remMs = Math.max(0, q.timeLimitMs - reactionTimeMs);
-      const earned = calculateQuestionScore(
-        logic.basePoints,
-        stageRef.current,
-        remMs,
-        q.timeLimitMs,
-        streakRef.current
-      );
+      let earned = 0;
+      if (typeof (logic as any).calculatePoints === 'function') {
+        earned = (logic as any).calculatePoints(q, answer, reactionTimeMs);
+      } else {
+        earned = calculateQuestionScore(
+          logic.basePoints,
+          stageRef.current,
+          remMs,
+          q.timeLimitMs,
+          streakRef.current
+        );
+      }
       scoreRef.current += earned;
       setScore(scoreRef.current);
     } else {

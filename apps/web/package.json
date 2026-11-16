@@ -13,6 +13,7 @@
   "dependencies": {
     "@funnygame/game-core": "workspace:*",
     "@funnygame/game-color-trap": "workspace:*",
+    "@funnygame/game-odd-one-out": "workspace:*",
     "@funnygame/ui": "workspace:*",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.46.1",
