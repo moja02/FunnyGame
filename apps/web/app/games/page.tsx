@@ -184,7 +184,7 @@ const allGames: GameItem[] = [
     stages: '70+ مرحلة'
   },
   {
-    id: 'odd-one-out',
+    id: 'logic-anomaly',
     title: 'العنصر الشاذ',
     ability: 'logic',
     abilityName: 'الذكاء والمنطق',
