@@ -21,6 +21,8 @@ interface LeaderboardEntry {
 
 const GAME_NAMES: Record<string, { title: string; ability: string; icon: string }> = {
   'color-trap': { title: 'ألوان خادعة', ability: 'السرعة والتركيز ⚡', icon: '🎨' },
+  'dont-tap': { title: 'لا تضغط!', ability: 'السرعة والتركيز ⚡', icon: '🛑' },
+  'dont_tap': { title: 'لا تضغط!', ability: 'السرعة والتركيز ⚡', icon: '🛑' },
   'odd-one-out': { title: 'الشاذ الغريب', ability: 'السرعة والتركيز ⚡', icon: '👁️' },
   'odd_one_out': { title: 'الشاذ الغريب', ability: 'السرعة والتركيز ⚡', icon: '👁️' },
   'speed-math': { title: 'حساب سريع', ability: 'الحساب والبديهة 🧮', icon: '⏱️' },

@@ -26,6 +26,7 @@ import {
   haptics
 } from '@funnygame/ui';
 import '@funnygame/game-color-trap';
+import '@funnygame/game-dont-tap';
 import '@funnygame/game-odd-one-out';
 
 interface PlayClientProps {
@@ -240,16 +241,23 @@ export default function PlayClient({ gameId }: PlayClientProps) {
   // Answer handler
   const handleAnswer = useCallback((answer: any | null) => {
     const q = currentQuestionRef.current;
-    if (!module || !q || isLockedRef.current) return;
-    isLockedRef.current = true;
-    setIsLocked(true);
-
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = null;
-    }
+    if (!module || !q) return;
 
     const logic = module.logic;
+    const isContinuous = !!(logic as any).isContinuous;
+
+    if (!isContinuous && isLockedRef.current) return;
+
+    if (!isContinuous) {
+      isLockedRef.current = true;
+      setIsLocked(true);
+
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
+    }
+
     const now = Date.now();
     const reactionTimeMs = Math.min(
       q.timeLimitMs,
@@ -278,7 +286,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       const remMs = Math.max(0, q.timeLimitMs - reactionTimeMs);
       let earned = 0;
       if (typeof (logic as any).calculatePoints === 'function') {
-        earned = (logic as any).calculatePoints(q, answer, reactionTimeMs);
+        earned = (logic as any).calculatePoints(q, answer, reactionTimeMs, streakRef.current);
       } else {
         earned = calculateQuestionScore(
           logic.basePoints,
@@ -290,17 +298,44 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       }
       scoreRef.current += earned;
       setScore(scoreRef.current);
+
+      // Check if stage should advance in continuous games
+      if (isContinuous) {
+        const nextStage = 1 + Math.floor(correctCountRef.current / logic.questionsPerStage);
+        if (nextStage > stageRef.current) {
+          stageRef.current = nextStage;
+          setStage(nextStage);
+          sound.levelUp();
+          loadQuestion();
+        }
+      }
     } else {
-      // Wrong answer OR timeout: decrement hearts, sound & haptics!
+      // Wrong answer OR timeout
       sound.wrong();
       haptics.error();
-      streakRef.current = 0;
-      setCombo(0);
-      heartsRef.current = Math.max(0, heartsRef.current - verdict.heartCost);
-      setHearts(heartsRef.current);
+
+      if (verdict.breaksCombo) {
+        streakRef.current = 0;
+        setCombo(0);
+      }
+
+      if (verdict.heartCost > 0) {
+        heartsRef.current = Math.max(0, heartsRef.current - verdict.heartCost);
+        setHearts(heartsRef.current);
+      }
     }
 
-    // Step to next question or trigger gameover
+    // In continuous action games, don't unmount or freeze view between hits
+    if (isContinuous) {
+      if (heartsRef.current <= 0) {
+        sound.gameOver();
+        setGameState('gameover');
+        submitRun(scoreRef.current);
+      }
+      return;
+    }
+
+    // Step to next question or trigger gameover for turn-based games
     setTimeout(() => {
       if (heartsRef.current <= 0) {
         sound.gameOver();

@@ -5,6 +5,14 @@ import { BottomNav } from '../components/BottomNav';
 
 const readyGames = [
   {
+    id: 'dont-tap',
+    title: 'لا تضغط!',
+    ability: 'السرعة والتركيز ⚡',
+    icon: '🛑',
+    description: 'أشكال تتساقط عبر 3 مسارات. اضغط على المطلوب بس، وسيّب الباقي ينزل!',
+    color: 'from-red-500/20 to-rose-700/30 border-red-500/50 text-red-300'
+  },
+  {
     id: 'odd-one-out',
     title: 'الشاذ الغريب',
     ability: 'السرعة والتركيز ⚡',

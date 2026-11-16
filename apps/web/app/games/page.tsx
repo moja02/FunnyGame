@@ -33,8 +33,8 @@ const allGames: GameItem[] = [
     ability: 'speed',
     abilityName: 'السرعة والتركيز',
     icon: '🛑',
-    description: 'تحكّم في أعصابك وتفادى الفخاخ المتتالية مع تغير الألوان والرموز.',
-    status: 'soon',
+    description: 'أشكال تتساقط عبر 3 مسارات. اضغط على المطلوب بس، وسيّب الباقي ينزل!',
+    status: 'ready',
     stages: '70+ مرحلة'
   },
   {

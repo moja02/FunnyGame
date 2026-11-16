@@ -6,6 +6,7 @@ const nextConfig = {
     '@funnygame/game-core',
     '@funnygame/ui',
     '@funnygame/game-color-trap',
+    '@funnygame/game-dont-tap',
     '@funnygame/game-odd-one-out'
   ],
   reactStrictMode: true,

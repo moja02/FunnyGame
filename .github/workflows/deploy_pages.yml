@@ -39,6 +39,7 @@ jobs:
           pnpm --filter @funnygame/game-core build
           pnpm --filter @funnygame/ui build
           pnpm --filter @funnygame/game-color-trap build
+          pnpm --filter @funnygame/game-dont-tap build
           pnpm --filter @funnygame/game-odd-one-out build
 
       - name: Export Next.js for GitHub Pages
