@@ -156,19 +156,19 @@ export class DontTapLogic
       else if (s === 56) introCardAr = 'بالتناوب! مرة هذا ومرة هذا.';
     }
 
-    // Generate Rules Sequence for this question/wave
-    const rules = this.generateRuleSequence(rng, s, ruleDurationMs, 4);
+    // Generate Rules Sequence for this question/wave (10 rules to ensure rules never run out)
+    const rules = this.generateRuleSequence(rng, s, ruleDurationMs, 10);
     const initialRule = rules[0]!;
     const upcomingRules = rules.slice(1);
 
-    // Generate a pool of falling items
+    // Generate a rich pool of falling items (60 items matching the rule schedule)
     const preGeneratedItems = this.generateItems(
       rng,
       s,
-      initialRule,
+      rules,
       fallDurationMs,
       spawnIntervalMs,
-      25
+      60
     );
 
     return {
@@ -397,7 +397,7 @@ export class DontTapLogic
   private generateItems(
     rng: Rng,
     stage: number,
-    rule: ActiveRule,
+    rules: ActiveRule[],
     fallDurationMs: number,
     spawnIntervalMs: number,
     itemCount: number
@@ -408,6 +408,11 @@ export class DontTapLogic
     let consecutiveNonMatches = 0;
 
     for (let i = 0; i < itemCount; i++) {
+      // Pick the rule active at this item's spawn epoch
+      const rule =
+        rules.find((r) => spawnTime >= r.startTimeMs && spawnTime < r.endTimeMs) ||
+        rules[rules.length - 1]!;
+
       // Pick available lane respecting min 450ms gap
       const candidateLanes: (0 | 1 | 2)[] = ([0, 1, 2] as const).filter(
         (l) => spawnTime - (laneLastSpawnTime[l] ?? -9999) >= 450
@@ -562,7 +567,10 @@ export class DontTapLogic
     }
 
     // 3. TAP action
-    const item = q.payload.preGeneratedItems.find((it) => it.itemIndex === answer.itemIndex);
+    const pool = q.payload.preGeneratedItems;
+    const item =
+      pool.find((it) => it.itemIndex === answer.itemIndex) ||
+      pool[answer.itemIndex % pool.length];
     if (!item) {
       return { correct: false, heartCost: 1, breaksCombo: true };
     }

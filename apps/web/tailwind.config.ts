@@ -5,6 +5,7 @@ const config: Config = {
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     '../../packages/ui/src/**/*.{js,ts,jsx,tsx}',
+    '../../packages/games/*/src/**/*.{js,ts,jsx,tsx}',
     '../../packages/games/*/view.tsx'
   ],
   theme: {

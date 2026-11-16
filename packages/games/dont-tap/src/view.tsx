@@ -17,6 +17,7 @@ interface ActiveFallingEntity extends FallingItem {
   isHit?: boolean;
   isWrong?: boolean;
   isMissed?: boolean;
+  hitEpochMs?: number;
 }
 
 export const DontTapView: React.FC<
@@ -142,28 +143,35 @@ export const DontTapView: React.FC<
     const tick = () => {
       const now = Date.now();
 
-      // Check if we need to spawn next item
+      // Check if we need to spawn next item - keep spawning continuously as long as stage target quota (5) is not reached!
       if (
-        now - lastSpawnEpochRef.current >= payload.spawnIntervalMs &&
-        nextItemSpawnIndexRef.current < payload.preGeneratedItems.length
+        targetHitsRef.current < 5 &&
+        now - lastSpawnEpochRef.current >= payload.spawnIntervalMs
       ) {
-        const itemTemplate = payload.preGeneratedItems[nextItemSpawnIndexRef.current]!;
-        nextItemSpawnIndexRef.current += 1;
-        lastSpawnEpochRef.current = now;
+        const pool = payload.preGeneratedItems;
+        if (pool.length > 0) {
+          const spawnIndex = nextItemSpawnIndexRef.current;
+          const templateIndex = spawnIndex % pool.length;
+          const itemTemplate = pool[templateIndex]!;
+          nextItemSpawnIndexRef.current += 1;
+          lastSpawnEpochRef.current = now;
 
-        const spawnRuleTarget = evaluateItemAgainstRule(itemTemplate, activeRuleRef.current, 0);
+          const spawnRuleTarget = evaluateItemAgainstRule(itemTemplate, activeRuleRef.current, 0);
 
-        const newEntity: ActiveFallingEntity = {
-          ...itemTemplate,
-          spawnEpochMs: now,
-          spawnRuleId: activeRuleRef.current.id,
-          spawnRuleTarget,
-          currentYRatio: 0,
-          currentLane: itemTemplate.lane,
-          hasMorphed: false
-        };
+          const newEntity: ActiveFallingEntity = {
+            ...itemTemplate,
+            id: `${itemTemplate.id}_${spawnIndex}`,
+            itemIndex: spawnIndex,
+            spawnEpochMs: now,
+            spawnRuleId: activeRuleRef.current.id,
+            spawnRuleTarget,
+            currentYRatio: 0,
+            currentLane: itemTemplate.lane,
+            hasMorphed: false
+          };
 
-        entitiesRef.current.push(newEntity);
+          entitiesRef.current.push(newEntity);
+        }
       }
 
       // Update positions & check bottom miss line (Y >= 1.0)
@@ -171,9 +179,17 @@ export const DontTapView: React.FC<
       const remaining: ActiveFallingEntity[] = [];
 
       for (const ent of currentEntities) {
-        if (ent.isHit || ent.isWrong) {
-          // Keep showing hit/wrong effect briefly
-          if (now - ent.spawnEpochMs < ent.fallDurationMs + 400) {
+        if (ent.isHit) {
+          // Instant disappearance: show micro-burst for only 120ms, then remove immediately!
+          if (ent.hitEpochMs && now - ent.hitEpochMs < 120) {
+            remaining.push(ent);
+          }
+          continue;
+        }
+
+        if (ent.isWrong) {
+          // Wrong tap shake: vanish in 200ms
+          if (ent.hitEpochMs && now - ent.hitEpochMs < 200) {
             remaining.push(ent);
           }
           continue;
@@ -312,6 +328,7 @@ export const DontTapView: React.FC<
       if (isMatch) {
         // Correct Hit!
         entity.isHit = true;
+        entity.hitEpochMs = now;
         sound.correct();
         haptics.light();
 
@@ -332,6 +349,7 @@ export const DontTapView: React.FC<
       } else {
         // Wrong Tap on Distractor!
         entity.isWrong = true;
+        entity.hitEpochMs = now;
         sound.wrong();
         haptics.error();
 
@@ -521,7 +539,8 @@ export const DontTapView: React.FC<
 
         {/* Miss Line at Bottom (88% height) - Glowing & Pulsing per Spec Update 2 */}
         <div
-          className={`absolute bottom-8 left-0 right-0 border-b-2 transition-all duration-200 z-10 flex items-center justify-between px-3 pointer-events-none ${
+          style={{ top: '88%' }}
+          className={`absolute left-0 right-0 -translate-y-1/2 border-b-2 transition-all duration-200 z-10 flex items-center justify-between px-3 pointer-events-none ${
             missFlash
               ? 'border-rose-400 bg-rose-500/25 shadow-[0_0_30px_rgba(244,63,94,0.9)]'
               : 'border-rose-500/50 shadow-[0_0_12px_rgba(244,63,94,0.35)]'
@@ -575,7 +594,7 @@ export const DontTapView: React.FC<
                   isHintGlow
                     ? 'ring-4 ring-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.8)] animate-pulse'
                     : ''
-                } ${ent.isHit ? 'scale-125 animate-ping' : ''} ${
+                } ${ent.isHit ? 'scale-125 opacity-30 transition-all duration-100' : ''} ${
                   ent.isWrong ? 'animate-shake' : ''
                 }`}
               >
@@ -600,7 +619,7 @@ export const DontTapView: React.FC<
 
                 {/* Hit Feedback */}
                 {ent.isHit && (
-                  <div className="absolute inset-0 flex items-center justify-center text-emerald-300 font-black text-3xl drop-shadow-md">
+                  <div className="absolute inset-0 flex items-center justify-center text-emerald-300 font-black text-3xl animate-ping pointer-events-none">
                     ✓
                   </div>
                 )}
