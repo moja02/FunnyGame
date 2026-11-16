@@ -55,6 +55,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
   const [stage, setStage] = useState(1);
   const [combo, setCombo] = useState(0);
   const [personalBest, setPersonalBest] = useState(0);
+  const [gameOverTaunt, setGameOverTaunt] = useState<string>('');
 
   // Current question & timer
   const [currentQuestion, setCurrentQuestion] = useState<Question<any> | null>(null);
@@ -340,7 +341,25 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     // In continuous action games, don't unmount or freeze view between hits
     if (isContinuous) {
       if (heartsRef.current <= 0) {
+        if (animFrameRef.current) {
+          cancelAnimationFrame(animFrameRef.current);
+          animFrameRef.current = null;
+        }
         sound.gameOver();
+
+        let selectedTaunt = '';
+        if (typeof (module.content as any)?.getTaunt === 'function') {
+          selectedTaunt = (module.content as any).getTaunt({
+            stage: stageRef.current,
+            score: scoreRef.current,
+            action: answer?.action,
+            timeSinceRuleSwitchMs: answer?.timeSinceRuleSwitchMs
+          });
+        } else {
+          selectedTaunt = getTaunt();
+        }
+        setGameOverTaunt(selectedTaunt);
+
         setGameState('gameover');
         submitRun(scoreRef.current);
       }
@@ -350,7 +369,22 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     // Step to next question or trigger gameover for turn-based games
     setTimeout(() => {
       if (heartsRef.current <= 0) {
+        if (animFrameRef.current) {
+          cancelAnimationFrame(animFrameRef.current);
+          animFrameRef.current = null;
+        }
         sound.gameOver();
+        let selectedTaunt = '';
+        if (typeof (module.content as any)?.getTaunt === 'function') {
+          selectedTaunt = (module.content as any).getTaunt({
+            stage: stageRef.current,
+            score: scoreRef.current,
+            action: answer?.action
+          });
+        } else {
+          selectedTaunt = getTaunt();
+        }
+        setGameOverTaunt(selectedTaunt);
         setGameState('gameover');
         submitRun(scoreRef.current);
       } else {
@@ -382,6 +416,11 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     answersRef.current = [];
     correctCountRef.current = 0;
     qIndexRef.current = 0;
+    setGameOverTaunt('');
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
 
     // Fetch start seed from server if registered, otherwise play seamlessly offline
     let generatedSeed = Math.floor(Math.random() * 2147483647) + 1;
@@ -440,9 +479,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     }
     const { tauntsLow, tauntsMid, tauntsHigh } = module.content;
     let pool = tauntsLow;
-    if (stage >= 25 && tauntsHigh?.length) {
+    if (stage >= 26 && tauntsHigh?.length) {
       pool = tauntsHigh;
-    } else if (stage >= 10 && tauntsMid?.length) {
+    } else if (stage >= 8 && tauntsMid?.length) {
       pool = tauntsMid;
     }
     if (!pool || pool.length === 0) return 'أداء قوي! عاود توا واكسر رقمك القياسي ⚡';
@@ -606,7 +645,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             score={score}
             stageReached={stage}
             personalBestScore={personalBest}
-            taunt={getTaunt()}
+            taunt={gameOverTaunt || getTaunt()}
             gameTitle={titleAr}
             shareUrl={
               typeof window !== 'undefined'
