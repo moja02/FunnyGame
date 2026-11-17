@@ -75,9 +75,13 @@ export class ColorTrapLogic implements GameLogic<ColorTrapQuestionPayload, strin
     else if (s <= 70) tier = 'legend';
     else tier = 'endless';
 
-    // 2. Time limit calculation (floor is 800ms reached at stage 23)
-    if (s <= 22) {
-      timeLimitMs = Math.max(800, 3000 - (s - 1) * 100);
+    // 2. Time limit calculation:
+    // Warmup stages (1-5) start generous at 4500ms (-300ms/stage) to allow relaxed onboarding
+    if (s <= 5) {
+      timeLimitMs = 4500 - (s - 1) * 300;
+    } else if (s <= 24) {
+      // Stages 6-24 scale down smoothly from 3000ms to 800ms
+      timeLimitMs = Math.max(800, 3000 - (s - 6) * 120);
     } else {
       timeLimitMs = 800;
     }

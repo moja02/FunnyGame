@@ -13,12 +13,32 @@ export const ColorTrapView: React.FC<GameViewProps<ColorTrapQuestionPayload, str
 }) => {
   const { payload } = question;
   const [currentHex, setCurrentHex] = useState(payload.wordHex);
+  const [ruleAlert, setRuleAlert] = useState<string | null>(null);
   const answerSubmittedRef = useRef(false);
+  const prevRuleRef = useRef<string | null>(null);
+  const isInitialMountRef = useRef(true);
 
   // Reset local state on new question
   useEffect(() => {
     setCurrentHex(payload.wordHex);
     answerSubmittedRef.current = false;
+
+    // Detect rule change (skip first question of round)
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      prevRuleRef.current = payload.rule;
+    } else if (prevRuleRef.current !== null && prevRuleRef.current !== payload.rule) {
+      setRuleAlert('تبدّلت القاعدة! اقرأ المطلوب ⚡');
+      sound.countdown();
+      haptics.light();
+      prevRuleRef.current = payload.rule;
+
+      const timer = setTimeout(() => {
+        setRuleAlert(null);
+      }, 1800);
+      return () => clearTimeout(timer);
+    }
+    prevRuleRef.current = payload.rule;
 
     // Handle mid-presentation color shift (stages 51+)
     if (payload.shiftHex && payload.shiftDelayMs) {
@@ -30,7 +50,7 @@ export const ColorTrapView: React.FC<GameViewProps<ColorTrapQuestionPayload, str
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [question.index, payload.wordHex, payload.shiftHex, payload.shiftDelayMs]);
+  }, [question.index, payload.rule, payload.wordHex, payload.shiftHex, payload.shiftDelayMs]);
 
   const handleChoice = (choiceId: string) => {
     if (locked || answerSubmittedRef.current) return;
@@ -63,17 +83,55 @@ export const ColorTrapView: React.FC<GameViewProps<ColorTrapQuestionPayload, str
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [locked, payload.options]);
 
+  // Dynamic styling based on active rule type
+  let ruleContainerTheme = 'border-amber-400/50 bg-slate-900/95 text-amber-300';
+  let ruleBadgeTheme = 'bg-amber-400/20 text-amber-300 border-amber-400/30';
+
+  if (payload.isSilentRule) {
+    ruleContainerTheme = 'border-rose-500/60 bg-rose-950/40 text-rose-400';
+    ruleBadgeTheme = 'bg-rose-500/20 text-rose-300 border-rose-500/30';
+  } else if (payload.rule === 'INK_COLOR') {
+    ruleContainerTheme = 'border-emerald-500/60 bg-slate-900/95 text-emerald-300';
+    ruleBadgeTheme = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+  } else if (payload.rule === 'WORD_MEANING') {
+    ruleContainerTheme = 'border-cyan-500/60 bg-slate-900/95 text-cyan-300';
+    ruleBadgeTheme = 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40';
+  } else if (payload.rule === 'COMPOUND') {
+    ruleContainerTheme = 'border-purple-500/60 bg-slate-900/95 text-purple-300';
+    ruleBadgeTheme = 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+  }
+
   return (
     <div className="w-full flex-1 flex flex-col justify-between p-3 select-none touch-none">
-      {/* 1. Rule Banner */}
-      <div className="text-center py-2.5 px-4 bg-slate-900/95 border border-amber-400/40 rounded-2xl mb-3 flex items-center justify-center shadow-lg shadow-black/40">
+      {/* 1. Rule Banner with prominent text & change alert */}
+      <div
+        className={`relative text-center py-3 sm:py-3.5 px-4 border-2 rounded-2xl mb-3 flex items-center justify-center shadow-lg shadow-black/40 transition-all duration-300 ${ruleContainerTheme} ${
+          ruleAlert
+            ? 'ring-4 ring-amber-400 border-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.6)] animate-pulse'
+            : ''
+        }`}
+      >
+        {/* Animated Pop Alert on Rule Switch */}
+        {ruleAlert && (
+          <div className="absolute -top-3.5 px-3 py-1 bg-gradient-to-r from-amber-400 via-orange-500 to-amber-400 text-slate-950 text-xs sm:text-sm font-black rounded-full shadow-[0_4px_12px_rgba(245,158,11,0.6)] border border-white/50 flex items-center gap-1.5 animate-bounce z-20">
+            <span className="text-base">🔄</span>
+            <span>{ruleAlert}</span>
+          </div>
+        )}
+
         {!payload.isSilentRule ? (
-          <div className="text-base sm:text-lg font-black text-amber-300 tracking-wide flex items-center justify-center gap-1.5 drop-shadow">
-            <span className="text-amber-400">القاعدة:</span>
-            <span>{payload.ruleLabelAr}</span>
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <span
+              className={`text-xs sm:text-sm font-black px-2.5 py-0.5 rounded-lg border ${ruleBadgeTheme}`}
+            >
+              القاعدة:
+            </span>
+            <span className="text-xl sm:text-2xl font-black text-white tracking-wide drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]">
+              {payload.ruleLabelAr}
+            </span>
           </div>
         ) : (
-          <span className="text-base sm:text-lg font-black text-rose-400 mx-auto animate-pulse flex items-center justify-center gap-1.5">
+          <span className="text-lg sm:text-xl font-black text-rose-400 mx-auto animate-pulse flex items-center justify-center gap-2">
             ⚠️ تبديل صامت! ركّز في المطلوب
           </span>
         )}

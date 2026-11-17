@@ -48,12 +48,13 @@ describe('ColorTrapLogic - Strict Architectural Solvability & Rules', () => {
     }
   });
 
-  it('strictly adheres to time limit floor (800ms) at stage 23 and beyond', () => {
-    expect(colorTrapLogic.stageConfig(1).timeLimitMs).toBe(3000);
-    expect(colorTrapLogic.stageConfig(2).timeLimitMs).toBe(2900);
-    expect(colorTrapLogic.stageConfig(22).timeLimitMs).toBe(900);
-    expect(colorTrapLogic.stageConfig(23).timeLimitMs).toBe(800);
-    expect(colorTrapLogic.stageConfig(24).timeLimitMs).toBe(800);
+  it('strictly adheres to time limit floor (800ms) at stage 25 and beyond with generous onboarding', () => {
+    // Generous onboarding in stages 1-5 (4500ms down to 3300ms)
+    expect(colorTrapLogic.stageConfig(1).timeLimitMs).toBe(4500);
+    expect(colorTrapLogic.stageConfig(2).timeLimitMs).toBe(4200);
+    expect(colorTrapLogic.stageConfig(5).timeLimitMs).toBe(3300);
+    expect(colorTrapLogic.stageConfig(6).timeLimitMs).toBe(3000);
+    expect(colorTrapLogic.stageConfig(24).timeLimitMs).toBe(840);
     expect(colorTrapLogic.stageConfig(25).timeLimitMs).toBe(800);
 
     // Two-word reading buffer in stages 26-35
