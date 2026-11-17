@@ -31,5 +31,36 @@ export const colorTrapContent = {
     'أوباا! اللون خدعك، ركّز!',
     'على آخر نفس! أسرع شوية ⚡',
     'قلب واحد بس! غلطة ثانية وتودّع 💔'
-  ]
+  ],
+
+  getTaunt: (context: {
+    stage: number;
+    score: number;
+    action?: string;
+  }): string => {
+    const { stage, score } = context;
+    const formattedScore = score.toLocaleString('en-US');
+
+    // High Tier (Stage 26+)
+    if (stage >= 26) {
+      if (score >= 50000) {
+        return `${formattedScore} نقطة! أداء أسطوري، فاضلك تكة وتخش قائمة الكبار، مستحيل توقف هنا صح؟ 🔥`;
+      }
+      return 'مستوى واعر بصراحة! لو غير ما تسرعتش في الأخيرة راك كسرت الرقم القياسي.';
+    }
+
+    // Mid Tier (Stages 8 - 25)
+    if (stage >= 8) {
+      if (stage >= 15) {
+        return 'يدك سريعة صح، لكن عقلك مشى ورا الكلمة وخلاك.. ركّز وعاود!';
+      }
+      return 'بدينا نخلطوا بين الكلمة واللون؟ هانت، زيدها محاولة ثانية وتجيبها!';
+    }
+
+    // Low Tier (Stages 1 - 7)
+    if (stage <= 2) {
+      return 'أحمر من أزرق ما عرفتهاش؟ ركّز شوية يا غالي راهو ساهلة!';
+    }
+    return 'تي شنو هذا؟ باين عليك مازال راقد، اغسل وجهك وعاود!';
+  }
 };

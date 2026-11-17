@@ -32,5 +32,42 @@ export const oddOneOutContent = {
     'احفظ مكانه في ثانية قبل ما يتغطى! 👁️',
     'لمّاح! ما يفوتك شي 🔥',
     'قلب واحد باقي... ركّز في كل لمسة 💔'
-  ]
+  ],
+
+  getTaunt: (context: {
+    stage: number;
+    score: number;
+    action?: any;
+  }): string => {
+    const { stage, score } = context;
+    const formattedScore = score.toLocaleString('en-US');
+
+    // High Tier (Stage 26+)
+    if (stage >= 26) {
+      if (stage >= 46) {
+        return `${formattedScore} نقطة في الشبكتين! أداء عالمي، جرب مرة زيادة وتخش قائمة الأساطير 😎`;
+      }
+      return `المرحلة ${stage}؟! عيون صقر والله، تطلع الفارق في أجزاء من الثانية 🔥`;
+    }
+
+    // Mid Tier (Stages 8 - 25)
+    if (stage >= 8) {
+      if (stage >= 15) {
+        return `${formattedScore} نقطة. غلطتين ورا بعض طيّروا الوقت كله.. خفف التسرع!`;
+      }
+      if (stage >= 12) {
+        return `المرحلة ${stage}! لما بدت تتحرك الشبكة دخت شوية، صح؟ زيدها محاولة!`;
+      }
+      return 'نظرك باهي ما شاء الله، بس تبي شوية سرعة زيادة باش تكسر الترتيب!';
+    }
+
+    // Low Tier (Stages 1 - 7)
+    if (stage <= 2) {
+      return '3×3 وغلطت فيها؟ شكلك تلعب وإنت مغمض عيونك يا غالي!';
+    }
+    if (stage <= 4) {
+      return `المرحلة ${stage} بس؟ الدخيل كبره كبر الباب وما شفتاش! امسح الشاشة وعاود 😏`;
+    }
+    return `${formattedScore} نقطة تسخينة خفيفة بس 👀 افتح عيونك زين وعاود توّا!`;
+  }
 };

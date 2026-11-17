@@ -360,7 +360,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             timeSinceRuleSwitchMs: answer?.timeSinceRuleSwitchMs
           });
         } else {
-          selectedTaunt = getTaunt();
+          selectedTaunt = getTaunt(stageRef.current, scoreRef.current);
         }
         setGameOverTaunt(selectedTaunt);
 
@@ -389,7 +389,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             action: answer?.action
           });
         } else {
-          selectedTaunt = getTaunt();
+          selectedTaunt = getTaunt(stageRef.current, scoreRef.current);
         }
         setGameOverTaunt(selectedTaunt);
         setGameState('gameover');
@@ -480,22 +480,25 @@ export default function PlayClient({ gameId }: PlayClientProps) {
   };
 
   // Select taunt based on performance
-  const getTaunt = (): string => {
+  const getTaunt = (currentStage?: number, currentScore?: number): string => {
     if (!module?.content) {
       return 'محاولة باهية، لكن عقلك يبي شوية تسخين! عاود وجيب سكور أحسن 🔥';
     }
+    const s = currentStage ?? stageRef.current;
+    const sc = currentScore ?? scoreRef.current;
+
     const { tauntsLow, tauntsMid, tauntsHigh } = module.content;
     let pool = tauntsLow;
-    if (stage >= 26 && tauntsHigh?.length) {
+    if (s >= 26 && tauntsHigh?.length) {
       pool = tauntsHigh;
-    } else if (stage >= 8 && tauntsMid?.length) {
+    } else if (s >= 8 && tauntsMid?.length) {
       pool = tauntsMid;
     }
     if (!pool || pool.length === 0) return 'أداء قوي! عاود توا واكسر رقمك القياسي ⚡';
     const chosen = pool[Math.floor(Math.random() * pool.length)] || '';
     return chosen
-      .replace(/\{stage\}/g, stage.toString())
-      .replace(/\{score\}/g, score.toLocaleString('en-US')) || 'أداء قوي! عاود توا واكسر رقمك القياسي ⚡';
+      .replace(/\{stage\}/g, s.toString())
+      .replace(/\{score\}/g, sc.toLocaleString('en-US')) || 'أداء قوي! عاود توا واكسر رقمك القياسي ⚡';
   };
 
   // Unknown or uninstalled game fallback
@@ -652,7 +655,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             score={score}
             stageReached={stage}
             personalBestScore={personalBest}
-            taunt={gameOverTaunt || getTaunt()}
+            taunt={gameOverTaunt || getTaunt(stageRef.current, scoreRef.current)}
             gameTitle={titleAr}
             shareUrl={
               typeof window !== 'undefined'
