@@ -124,7 +124,8 @@ export function hexToRgb(hex: string): RgbColor {
 }
 
 /**
- * Generates an odd color shifted by targetDeltaE with guaranteed minimum difference (>= 4.5).
+ * Generates an odd color shifted by targetDeltaE with guaranteed minimum difference (>= 5.5)
+ * and high luminance contrast (ensuring lightness delta is always perceptible across all colors).
  */
 export function generateOddColor(
   baseHex: string,
@@ -136,18 +137,22 @@ export function generateOddColor(
   const baseLab = rgbToLab(baseRgb);
 
   // Enforce minimum threshold floor
-  const effectiveDeltaE = Math.max(4.5, targetDeltaE);
+  const effectiveDeltaE = Math.max(5.5, targetDeltaE);
 
-  // Split Delta-E into Lightness shift (40%) and Chroma/Hue shift (60%)
-  const dl = rngLFactor * (effectiveDeltaE * 0.4);
+  // Prefer shifting darker for brighter colors (L > 55) to avoid white clipping,
+  // and lighter for darker colors (L <= 55) to avoid blending into dark background (#16181D)
+  const lSign = baseLab.l > 55 ? -1 : 1;
+
+  // Guarantee 70% to 85% of Delta-E is allocated to Lightness contrast (human vision pop-out)
+  const lRatio = 0.70 + Math.abs(rngLFactor) * 0.15;
+  const dl = lSign * (effectiveDeltaE * lRatio);
+
   const remainingDelta = Math.sqrt(Math.max(0, effectiveDeltaE * effectiveDeltaE - dl * dl));
   const da = Math.cos(rngAngle) * remainingDelta;
   const db = Math.sin(rngAngle) * remainingDelta;
 
-  // Clamped target Lab (ensuring L stays in reasonable visual range 30..85 for dark background #16181D)
-  let targetL = baseLab.l + dl;
-  if (targetL < 30) targetL = baseLab.l + Math.abs(dl);
-  if (targetL > 85) targetL = baseLab.l - Math.abs(dl);
+  // Ensure target L stays safely within vibrant visible gamut (25 to 88)
+  const targetL = Math.max(25, Math.min(88, baseLab.l + dl));
 
   const oddLab: LabColor = {
     l: targetL,

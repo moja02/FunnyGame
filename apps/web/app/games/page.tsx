@@ -49,11 +49,11 @@ const allGames: GameItem[] = [
   },
   {
     id: 'odd-one-out',
-    title: 'الشاذ الغريب',
+    title: 'الدخيل',
     ability: 'speed',
     abilityName: 'السرعة والتركيز',
     icon: '👁️',
-    description: 'امسح الشبكة بسرعة واكتشف الرمز الوحيد المختلف في الشكل أو اللون أو الزاوية!',
+    description: 'امسح الشبكة بسرعة واكتشف الرمز أو اللون الدخيل قبل ما ينفد الوقت!',
     status: 'ready',
     stages: '70+ مرحلة'
   },
@@ -185,7 +185,7 @@ const allGames: GameItem[] = [
   },
   {
     id: 'logic-anomaly',
-    title: 'العنصر الشاذ',
+    title: 'العنصر الدخيل',
     ability: 'logic',
     abilityName: 'الذكاء والمنطق',
     icon: '🔍',

@@ -14,10 +14,10 @@ const readyGames = [
   },
   {
     id: 'odd-one-out',
-    title: 'الشاذ الغريب',
+    title: 'الدخيل',
     ability: 'السرعة والتركيز ⚡',
     icon: '👁️',
-    description: 'اكتشف الرمز الوحيد المختلف في الشكل أو اللون أو الزاوية!',
+    description: 'اكتشف الرمز أو اللون الدخيل في الشكل أو اللون أو الزاوية!',
     color: 'from-amber-500/20 to-orange-600/30 border-amber-400/50 text-amber-300'
   },
   {

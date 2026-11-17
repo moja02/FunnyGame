@@ -138,7 +138,7 @@ export class OddOneOutLogic implements GameLogic<OddOneOutQuestionPayload, OddOn
       diffType = 'SHAPE';
     } else if (s <= 6) {
       diffType = 'COLOR';
-      deltaE = 24;
+      deltaE = 26;
     } else if (s <= 9) {
       diffType = 'ROTATION';
       rotationAngleDeg = 30;
@@ -146,11 +146,11 @@ export class OddOneOutLogic implements GameLogic<OddOneOutQuestionPayload, OddOn
       // Mix of 3 types
       const pick = rng.nextInt(0, 2);
       diffType = pick === 0 ? 'SHAPE' : pick === 1 ? 'COLOR' : 'ROTATION';
-      deltaE = 18;
+      deltaE = 22;
       rotationAngleDeg = 20;
     } else if (s <= 14) {
       diffType = rng.next() > 0.5 ? 'COLOR' : 'ROTATION';
-      deltaE = 14;
+      deltaE = 18;
       rotationAngleDeg = 15;
     } else if (s <= 16) {
       diffType = 'SHAPE';
@@ -158,26 +158,26 @@ export class OddOneOutLogic implements GameLogic<OddOneOutQuestionPayload, OddOn
       diffType = 'DUAL_DISTRACTOR';
     } else if (s <= 24) {
       diffType = 'COLOR';
-      deltaE = 10;
+      deltaE = 15;
     } else if (s <= 31) {
       diffType = 'COLOR';
-      deltaE = 7.5;
+      deltaE = 12;
     } else if (s <= 35) {
       diffType = 'ROTATION';
       rotationAngleDeg = 10;
     } else if (s <= 45) {
       diffType = 'COLOR';
-      deltaE = 8.0;
+      deltaE = 10;
     } else {
       // 46+
       const pick = rng.nextInt(0, 1);
       diffType = pick === 0 ? 'COLOR' : 'ROTATION';
       if (s <= 70) {
-        deltaE = Math.max(5.0, 8.0 - (s - 46) * 0.1);
+        deltaE = Math.max(7.0, 10.0 - (s - 46) * 0.1);
         rotationAngleDeg = Math.max(8, 15 - Math.floor((s - 46) / 4));
       } else {
         // Endless 71+
-        deltaE = Math.max(4.5, 8.0 - 0.1 * (s - 70));
+        deltaE = Math.max(6.0, 7.5 - 0.05 * (s - 70));
         rotationAngleDeg = Math.max(5, 10 - Math.floor((s - 70) / 5));
       }
     }
@@ -487,7 +487,7 @@ export class OddOneOutLogic implements GameLogic<OddOneOutQuestionPayload, OddOn
     if (s === 25) return 'شبكة الكبار 8×8! افتح عيونك زين.';
     if (s === 26) return 'الألوان متقاربة والرموز تبدّل أماكنها!';
     if (s === 37) return 'لمحة 0.8 ثانية بس في شبكة 8×8!';
-    if (s === 47) return 'شبكتين في نص ثانية! احفظ مكان الشاذ في كل وحدة بالترتيب.';
+    if (s === 47) return 'شبكتين في نص ثانية! احفظ مكان الدخيل في كل وحدة بالترتيب.';
     if (s === 56) return 'انتبه للسهم! الترتيب المطلوب يتغير.';
     return undefined;
   }
