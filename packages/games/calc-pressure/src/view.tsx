@@ -84,23 +84,9 @@ export const CalcPressureView: React.FC<
       isAnsweredRef.current = true;
       setSelectedChoice(choiceIndex);
 
-      const isCorrect = choiceIndex === payload.correctChoiceIndex;
-
-      if (isCorrect) {
-        sound.correct();
-        haptics.light();
-        setTimeout(() => {
-          onAnswer({ choiceIndex, value: choiceValue });
-        }, 300);
-      } else {
-        sound.wrong();
-        haptics.error();
-        setTimeout(() => {
-          onAnswer({ choiceIndex, value: choiceValue });
-        }, 750);
-      }
+      onAnswer({ choiceIndex, value: choiceValue });
     },
-    [locked, introDismissed, payload.correctChoiceIndex, onAnswer]
+    [locked, introDismissed, onAnswer]
   );
 
   // Keyboard shortcut listener (1, 2, 3 and Numpad 1, 2, 3)
@@ -355,7 +341,6 @@ export const CalcPressureView: React.FC<
           return (
             <button
               key={idx}
-              onPointerDown={() => handleSelect(idx, choiceVal)}
               onClick={() => handleSelect(idx, choiceVal)}
               disabled={locked || isAnsweredRef.current || !introDismissed}
               className={`w-full flex-1 min-h-[58px] rounded-2xl border-2 flex items-center justify-between px-6 transition-all duration-150 relative active:scale-95 cursor-pointer shadow-lg ${btnBg}`}

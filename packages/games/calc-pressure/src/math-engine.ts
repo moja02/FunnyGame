@@ -28,8 +28,9 @@ export function getStageRules(stage: number): StageRules {
   const isBoss = stage % 5 === 0;
   const isBreathing = (stage - 1) % 5 === 0 && stage > 1;
 
-  // u(s) = max(0.8, 2.0 - 0.03 * (s - 1))
-  const unitTime = Math.max(0.8, 2.0 - 0.03 * (stage - 1));
+  // u(s): calibrated comfortably for mental calculation
+  // u(1) = 3.5s, scaling down smoothly down to min 1.0s
+  const unitTime = Math.max(1.0, 3.5 - 0.04 * (stage - 1));
 
   // R max: 99 until stage 18, 999 from 19, 9999 from 37
   let rMax = 99;

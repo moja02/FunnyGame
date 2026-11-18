@@ -60,7 +60,7 @@ export class CalcPressureLogic
     return {
       stage,
       tier,
-      timeLimitMs: Math.round(rules.unitTime * 1000),
+      timeLimitMs: Math.round((rules.unitTime + 0.5) * 1000),
       isBoss: rules.isBoss,
       params: {
         isBreathing: rules.isBreathing,
@@ -116,8 +116,8 @@ export class CalcPressureLogic
         if (rules.isBreathing) eq += 0.5;
         if (rules.hasCloseChoices) eq += 0.3;
 
-        const rawTq = rules.unitTime * expr.cost + eq;
-        const tqSec = Math.max(1.2, Math.round(rawTq * 10) / 10);
+        const rawTq = rules.unitTime * expr.cost + 0.5 + eq;
+        const tqSec = Math.max(1.5, Math.round(rawTq * 10) / 10);
         const timeLimitMs = Math.round(tqSec * 1000);
 
         payload = {
@@ -160,8 +160,8 @@ export class CalcPressureLogic
         if (rules.hasCloseChoices) eq += 0.3;
         if (isH) eq += 0.5;
 
-        const rawTq = rules.unitTime * step.cost + eq;
-        const tqSec = Math.max(1.2, Math.round(rawTq * 10) / 10);
+        const rawTq = rules.unitTime * step.cost + 0.5 + eq;
+        const tqSec = Math.max(1.5, Math.round(rawTq * 10) / 10);
         const timeLimitMs = Math.round(tqSec * 1000);
 
         payload = {
@@ -229,8 +229,8 @@ export class CalcPressureLogic
         if (rules.hasCloseChoices) eq += 0.3;
         if (isH) eq += 0.5;
 
-        const rawTq = rules.unitTime * costTotal + eq;
-        const tqSec = Math.max(1.2, Math.round(rawTq * 10) / 10);
+        const rawTq = rules.unitTime * costTotal + 0.5 + eq;
+        const tqSec = Math.max(1.5, Math.round(rawTq * 10) / 10);
         const timeLimitMs = Math.round(tqSec * 1000);
 
         payload = {
@@ -303,8 +303,8 @@ export class CalcPressureLogic
         if (rules.hasCloseChoices) eq += 0.3;
         if (rules.isBreathing) eq += 0.5;
 
-        const rawTq = rules.unitTime * costTotal + eq;
-        const tqSec = Math.max(1.2, Math.round(rawTq * 10) / 10);
+        const rawTq = rules.unitTime * costTotal + 0.5 + eq;
+        const tqSec = Math.max(1.5, Math.round(rawTq * 10) / 10);
         const timeLimitMs = Math.round(tqSec * 1000);
 
         payload = {

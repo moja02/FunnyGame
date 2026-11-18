@@ -30,6 +30,102 @@ import '@funnygame/game-color-trap';
 import '@funnygame/game-dont-tap';
 import '@funnygame/game-odd-one-out';
 
+const GAME_METADATA: Record<
+  string,
+  {
+    title: string;
+    abilityName: string;
+    icon: string;
+    abilityBadgeColor: string;
+    rules: string[];
+  }
+> = {
+  'calc-pressure': {
+    title: 'حاسبة تحت الضغط',
+    abilityName: 'الحساب والبديهة 🔢',
+    icon: '🧮',
+    abilityBadgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    rules: [
+      'عندك 3 قلوب بس، كل غلطة أو نفاد وقت يطير قلب.',
+      'احسب العملية واضغط على الناتج الصحيح من الخيارات الثلاثة.',
+      'الإجابة الصح تزيد الكومبو (x1, x2, x3) وتضاعف نقاطك.',
+      'تتراكم العمليات وتتسلسل مع تقدم المراحل!'
+    ]
+  },
+  'calc_pressure': {
+    title: 'حاسبة تحت الضغط',
+    abilityName: 'الحساب والبديهة 🔢',
+    icon: '🧮',
+    abilityBadgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    rules: [
+      'عندك 3 قلوب بس، كل غلطة أو نفاد وقت يطير قلب.',
+      'احسب العملية واضغط على الناتج الصحيح من الخيارات الثلاثة.',
+      'الإجابة الصح تزيد الكومبو (x1, x2, x3) وتضاعف نقاطك.',
+      'تتراكم العمليات وتتسلسل مع تقدم المراحل!'
+    ]
+  },
+  'odd-one-out': {
+    title: 'الدخيل',
+    abilityName: 'السرعة والتركيز ⚡',
+    icon: '👁️',
+    abilityBadgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    rules: [
+      'امسح الشبكة بسرعة واكتشف العنصر الدخيل قبل نفاد الوقت.',
+      'أي ضغطة على مربع عادي تنقص ثانيتين من وقتك.',
+      'عندك 3 قلوب بس، كل نفاد وقت يطير قلب.',
+      'كل 5 أسئلة تفتح آلية وتحدي جديد!'
+    ]
+  },
+  'odd_one_out': {
+    title: 'الدخيل',
+    abilityName: 'السرعة والتركيز ⚡',
+    icon: '👁️',
+    abilityBadgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    rules: [
+      'امسح الشبكة بسرعة واكتشف العنصر الدخيل قبل نفاد الوقت.',
+      'أي ضغطة على مربع عادي تنقص ثانيتين من وقتك.',
+      'عندك 3 قلوب بس، كل نفاد وقت يطير قلب.',
+      'كل 5 أسئلة تفتح آلية وتحدي جديد!'
+    ]
+  },
+  'dont-tap': {
+    title: 'لا تضغط!',
+    abilityName: 'السرعة والتركيز ⚡',
+    icon: '🛑',
+    abilityBadgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+    rules: [
+      'اضغط على المطلوب بس: كل صيد صح يزيد الكومبو والنقاط.',
+      'لا تضغط على الممنوع: أي لمسة لشكل غير مطابق تطير قلب 💔.',
+      'تفويت المطلوب: يكسر الكومبو فقط، وتفويت 3 أشكال يطير قلب!',
+      'نافذة أمان 600ms عند تبديل القاعدة لحمايتك.'
+    ]
+  },
+  'dont_tap': {
+    title: 'لا تضغط!',
+    abilityName: 'السرعة والتركيز ⚡',
+    icon: '🛑',
+    abilityBadgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+    rules: [
+      'اضغط على المطلوب بس: كل صيد صح يزيد الكومبو والنقاط.',
+      'لا تضغط على الممنوع: أي لمسة لشكل غير مطابق تطير قلب 💔.',
+      'تفويت المطلوب: يكسر الكومبو فقط، وتفويت 3 أشكال يطير قلب!',
+      'نافذة أمان 600ms عند تبديل القاعدة لحمايتك.'
+    ]
+  },
+  'color-trap': {
+    title: 'ألوان خادعة',
+    abilityName: 'السرعة والتركيز ⚡',
+    icon: '🎨',
+    abilityBadgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+    rules: [
+      'عندك 3 قلوب بس، كل غلطة أو نفاد وقت يطير قلب.',
+      'اكبح ردة فعلك التلقائية واقرأ المطلوب بدقة.',
+      'الإجابة الصح تزيد الكومبو ($x1, x2, x3$) وتضاعف النقاط.',
+      'كل 5 أسئلة تطلع مرحلة أصعب وأسرع.'
+    ]
+  }
+};
+
 interface PlayClientProps {
   gameId: string;
 }
@@ -392,6 +488,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     }
 
     // Step to next question or trigger gameover for turn-based games
+    const transitionDelay = verdict.correct ? 250 : 500;
     setTimeout(() => {
       if (heartsRef.current <= 0) {
         if (animFrameRef.current) {
@@ -416,7 +513,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         qIndexRef.current += 1;
         loadQuestion();
       }
-    }, 220);
+    }, transitionDelay);
   }, [module, submitRun, loadQuestion]);
 
   // Keep ref synchronized
@@ -542,7 +639,18 @@ export default function PlayClient({ gameId }: PlayClientProps) {
 
   const GameViewComponent = module.View as React.ComponentType<GameViewProps<any, any>>;
   const stageCfg = module.logic.stageConfig(stage);
-  const titleAr = (module.content as { title?: string }).title || 'ألوان خادعة';
+  const meta = GAME_METADATA[gameId] || {
+    title: (module.content as { title?: string }).title || 'ألوان خادعة',
+    abilityName: 'السرعة والتركيز ⚡',
+    icon: '🎨',
+    abilityBadgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+    rules: [
+      'عندك 3 قلوب بس، كل غلطة أو نفاد وقت يطير قلب.',
+      'الإجابة الصح تزيد الكومبو ($x1, x2, x3$) وتضاعف النقاط.',
+      'كل 5 أسئلة تطلع مرحلة أصعب وأسرع.'
+    ]
+  };
+  const titleAr = meta.title;
   const descriptionAr = module.content.howToPlay;
 
   return (
@@ -561,13 +669,13 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       {/* 2. Briefing Screen */}
       {gameState === 'briefing' && (
         <div className="flex-1 flex flex-col items-center justify-center p-5 text-center">
-          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-rose-500/20 to-amber-500/20 border-2 border-amber-400 flex items-center justify-center text-5xl mb-4 shadow-[0_0_35px_rgba(254,202,87,0.35)]">
-            🎨
+          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-2 border-amber-400 flex items-center justify-center text-5xl mb-4 shadow-[0_0_35px_rgba(254,202,87,0.35)]">
+            {meta.icon}
           </div>
 
           <div className="flex items-center gap-1.5 mb-2">
-            <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
-              السرعة والتركيز ⚡
+            <span className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${meta.abilityBadgeColor}`}>
+              {meta.abilityName}
             </span>
             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/10 text-slate-300">
               70+ مرحلة
@@ -588,20 +696,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
               <span>⚠️</span>
               <span>قواعد الجولة:</span>
             </div>
-            {gameId === 'dont-tap' || gameId === 'dont_tap' ? (
-              <>
-                <div>• اضغط على المطلوب بس: كل صيد صح يزيد الكومبو والنقاط.</div>
-                <div>• لا تضغط على الممنوع: أي لمسة لشكل غير مطابق تطير قلب 💔.</div>
-                <div>• تفويت المطلوب: يكسر الكومبو فقط، وتفويت 3 أشكال بالمرحلة يطير قلب!</div>
-                <div>• نافذة أمان 600ms عند تبديل القاعدة لحمايتك.</div>
-              </>
-            ) : (
-              <>
-                <div>• عندك 3 قلوب بس، كل غلطة أو نفاد وقت يطير قلب.</div>
-                <div>• الإجابة الصح تزيد الكومبو ($x1, x2, x3$) وتضاعف النقاط.</div>
-                <div>• كل 5 أسئلة تطلع مرحلة أصعب وأسرع.</div>
-              </>
-            )}
+            {meta.rules.map((rule, idx) => (
+              <div key={idx}>• {rule}</div>
+            ))}
           </div>
 
           {personalBest > 0 && (
