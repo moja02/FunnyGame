@@ -171,8 +171,38 @@ export const CalcPressureView: React.FC<
     );
   };
 
+  // Helper to render math expressions in natural Arabic RTL order
+  const renderRTLMathTokens = (exprText: string) => {
+    if (!exprText) return null;
+    const tokens = exprText.trim().split(/\s+/);
+    return (
+      <div
+        dir="rtl"
+        className="flex items-center justify-center gap-2.5 sm:gap-4 select-none"
+      >
+        {tokens.map((token, idx) => {
+          const isOp = ['+', '−', '-', '×', '*', '÷', '/'].includes(token);
+          return (
+            <span
+              key={idx}
+              dir="ltr"
+              style={{ unicodeBidi: 'isolate' }}
+              className={
+                isOp
+                  ? 'text-amber-400 font-black text-3xl sm:text-4xl px-0.5'
+                  : 'text-white font-mono font-black text-4xl sm:text-5xl tracking-wider'
+              }
+            >
+              {token}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
-    <div className="w-full flex-1 flex flex-col justify-between select-none touch-none relative p-2 max-w-[480px] mx-auto h-full">
+    <div className="w-full flex-1 flex flex-col justify-between select-none touch-none relative px-2 py-1 max-w-[440px] mx-auto h-full min-h-0 overflow-hidden">
       {/* 1. Intro Rule Card Modal */}
       {!introDismissed && payload.introCardAr && (
         <div
@@ -196,10 +226,10 @@ export const CalcPressureView: React.FC<
       )}
 
       {/* 2. Top Info / Guidance Bar */}
-      <div className="h-[7%] min-h-[38px] flex items-center justify-between px-2 mb-1">
+      <div className="shrink-0 flex items-center justify-between px-2 py-0.5 min-h-[28px] text-xs">
         <div className="flex items-center">
           {liveTaunt ? (
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 border border-amber-500/40 rounded-xl text-xs font-black text-amber-200 animate-fadeIn">
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-amber-500/20 border border-amber-500/40 rounded-xl text-xs font-black text-amber-200 animate-fadeIn">
               <span>💬</span>
               <span>{liveTaunt}</span>
             </div>
@@ -212,10 +242,10 @@ export const CalcPressureView: React.FC<
         </div>
       </div>
 
-      {/* 3. Center Operation Card (30% Height) */}
-      <div className="h-[32%] min-h-[160px] bg-[#121212] border-2 border-slate-800/80 rounded-3xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-2xl">
+      {/* 3. Center Operation Card */}
+      <div className="flex-1 min-h-[90px] max-h-[165px] bg-[#121212] border-2 border-slate-800/80 rounded-2xl sm:rounded-3xl p-3 my-1 flex flex-col items-center justify-center relative overflow-hidden shadow-xl">
         {/* Subtle corner badge */}
-        <div className="absolute top-2.5 right-3 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+        <div className="absolute top-2 right-3 text-[10px] font-black text-slate-500 uppercase tracking-wider">
           {payload.pattern === 'L'
             ? 'مقارنة'
             : payload.pattern === 'K'
@@ -227,40 +257,45 @@ export const CalcPressureView: React.FC<
             : 'عملية'}
         </div>
 
-        {/* Math expression rendered strictly LTR */}
-        <div
-          dir="ltr"
-          style={{ unicodeBidi: 'isolate' }}
-          className="w-full flex items-center justify-center font-mono font-black select-none"
-        >
+        {/* Math expression rendered in natural Arabic RTL order */}
+        <div className="w-full flex items-center justify-center font-mono font-black select-none">
           {/* Pattern S */}
-          {payload.pattern === 'S' && (
-            <div className="text-4xl sm:text-5xl font-black text-white tracking-wider whitespace-nowrap drop-shadow-md">
-              {payload.singleExpr}
-            </div>
-          )}
+          {payload.pattern === 'S' && renderRTLMathTokens(payload.singleExpr || '')}
 
           {/* Pattern C */}
           {payload.pattern === 'C' && payload.accumulatedStep && (
-            <div className="flex items-center gap-3">
+            <div dir="rtl" className="flex items-center justify-center gap-3">
               <span className="text-slate-400 text-3xl font-light">R</span>
-              <span className="text-4xl sm:text-5xl font-black text-amber-300 tracking-wider">
-                {payload.accumulatedStep.text}
+              <span className="text-amber-400 text-3xl sm:text-4xl font-black">
+                {payload.accumulatedStep.op}
+              </span>
+              <span
+                dir="ltr"
+                style={{ unicodeBidi: 'isolate' }}
+                className="text-4xl sm:text-5xl font-mono font-black text-amber-300 tracking-wider"
+              >
+                {payload.accumulatedStep.operand}
               </span>
             </div>
           )}
 
           {/* Pattern K */}
           {payload.pattern === 'K' && payload.chainSteps && (
-            <div className="flex flex-wrap items-center justify-center gap-2 max-w-full">
-              <div className="px-3 py-1 bg-slate-800 rounded-xl text-slate-300 font-bold text-lg">
+            <div dir="rtl" className="flex flex-wrap items-center justify-center gap-2 max-w-full">
+              <div className="px-3 py-1 bg-slate-800 rounded-xl text-slate-300 font-bold text-base sm:text-lg">
                 R ({payload.previousR})
               </div>
               {payload.chainSteps.map((step, idx) => (
                 <React.Fragment key={idx}>
-                  <span className="text-amber-400 text-lg">→</span>
-                  <div className="px-3 py-1.5 bg-amber-400/15 border border-amber-400/30 rounded-xl text-xl sm:text-2xl font-black text-amber-200 shadow-sm">
-                    {step.text}
+                  <span className="text-amber-400 text-lg">←</span>
+                  <div
+                    dir="rtl"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-400/15 border border-amber-400/30 rounded-xl text-xl sm:text-2xl font-black text-amber-200 shadow-sm"
+                  >
+                    <span>{step.op}</span>
+                    <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+                      {step.operand}
+                    </span>
                   </div>
                 </React.Fragment>
               ))}
@@ -269,26 +304,39 @@ export const CalcPressureView: React.FC<
 
           {/* Pattern H */}
           {payload.pattern === 'H' && (
-            <div className="flex flex-col items-center gap-2">
+            <div dir="rtl" className="flex flex-col items-center gap-2">
               {payload.subPattern === 'K' && payload.chainSteps ? (
-                <div className="flex flex-wrap items-center justify-center gap-2 max-w-full">
-                  <div className="px-3 py-1 bg-slate-800/80 border border-slate-700 rounded-xl text-amber-400 font-black text-lg">
+                <div dir="rtl" className="flex flex-wrap items-center justify-center gap-2 max-w-full">
+                  <div className="px-3 py-1 bg-slate-800/80 border border-slate-700 rounded-xl text-amber-400 font-black text-base sm:text-lg">
                     R (؟)
                   </div>
                   {payload.chainSteps.map((step, idx) => (
                     <React.Fragment key={idx}>
-                      <span className="text-amber-400 text-lg">→</span>
-                      <div className="px-3 py-1.5 bg-amber-400/20 border border-amber-400/40 rounded-xl text-xl sm:text-2xl font-black text-amber-100 shadow-sm">
-                        {step.text}
+                      <span className="text-amber-400 text-lg">←</span>
+                      <div
+                        dir="rtl"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-400/20 border border-amber-400/40 rounded-xl text-xl sm:text-2xl font-black text-amber-100 shadow-sm"
+                      >
+                        <span>{step.op}</span>
+                        <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+                          {step.operand}
+                        </span>
                       </div>
                     </React.Fragment>
                   ))}
                 </div>
               ) : payload.accumulatedStep ? (
-                <div className="flex items-center gap-3">
+                <div dir="rtl" className="flex items-center justify-center gap-3">
                   <span className="text-amber-400 text-3xl font-bold">R (؟)</span>
-                  <span className="text-4xl sm:text-5xl font-black text-amber-300 tracking-wider">
-                    {payload.accumulatedStep.text}
+                  <span className="text-amber-400 text-3xl sm:text-4xl font-black">
+                    {payload.accumulatedStep.op}
+                  </span>
+                  <span
+                    dir="ltr"
+                    style={{ unicodeBidi: 'isolate' }}
+                    className="text-4xl sm:text-5xl font-mono font-black text-amber-300 tracking-wider"
+                  >
+                    {payload.accumulatedStep.operand}
                   </span>
                 </div>
               ) : null}
@@ -297,29 +345,26 @@ export const CalcPressureView: React.FC<
 
           {/* Pattern L */}
           {payload.pattern === 'L' && (
-            <div className="w-full flex flex-col gap-2.5 max-w-xs">
-              <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border border-slate-700 rounded-2xl">
+            <div className="w-full flex flex-col gap-2 max-w-xs">
+              <div className="flex items-center justify-between px-3.5 py-1.5 bg-slate-900/90 border border-slate-700 rounded-2xl">
                 <span className="text-xs font-bold text-slate-400">طرف A:</span>
-                <span className="text-2xl font-black text-white tracking-wider">
-                  {payload.lExprA}
-                </span>
+                <div className="text-xl sm:text-2xl font-black text-white">
+                  {renderRTLMathTokens(payload.lExprA || '')}
+                </div>
               </div>
-              <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border border-slate-700 rounded-2xl">
+              <div className="flex items-center justify-between px-3.5 py-1.5 bg-slate-900/90 border border-slate-700 rounded-2xl">
                 <span className="text-xs font-bold text-slate-400">طرف B:</span>
-                <span className="text-2xl font-black text-white tracking-wider">
-                  {payload.lExprB}
-                </span>
+                <div className="text-xl sm:text-2xl font-black text-white">
+                  {renderRTLMathTokens(payload.lExprB || '')}
+                </div>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Spacer */}
-      <div className="h-[2%]" />
-
-      {/* 4. Three Vertical Choice Buttons (40% Height) */}
-      <div className="h-[48%] flex flex-col justify-between gap-2.5 mb-2">
+      {/* 4. Three Vertical Choice Buttons */}
+      <div className="shrink-0 flex flex-col gap-2 pb-1 w-full">
         {payload.choices.map((choiceVal, idx) => {
           const isSelected = selectedChoice === idx;
           const isCorrectChoice = idx === payload.correctChoiceIndex;
@@ -343,7 +388,7 @@ export const CalcPressureView: React.FC<
               key={idx}
               onClick={() => handleSelect(idx, choiceVal)}
               disabled={locked || isAnsweredRef.current || !introDismissed}
-              className={`w-full flex-1 min-h-[58px] rounded-2xl border-2 flex items-center justify-between px-6 transition-all duration-150 relative active:scale-95 cursor-pointer shadow-lg ${btnBg}`}
+              className={`w-full h-[52px] sm:h-[58px] min-h-[48px] max-h-[60px] rounded-2xl border-2 flex items-center justify-between px-5 transition-all duration-150 relative active:scale-95 cursor-pointer shadow-md ${btnBg}`}
             >
               {/* Keyboard digit hint */}
               <span className="text-xs font-mono font-bold text-slate-400/80 px-2 py-0.5 rounded-lg bg-black/25">
@@ -354,7 +399,7 @@ export const CalcPressureView: React.FC<
               <span
                 dir="ltr"
                 style={{ unicodeBidi: 'isolate' }}
-                className="font-mono text-3xl sm:text-4xl font-black tracking-wider text-center flex-1"
+                className="font-mono text-2xl sm:text-3xl font-black tracking-wider text-center flex-1"
               >
                 {choiceVal}
               </span>
