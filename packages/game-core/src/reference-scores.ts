@@ -47,11 +47,33 @@ export const referenceScoresByAbility: Record<string, ScoreDistribution> = {
   }
 };
 
+export const referenceScoresByGame: Record<string, ScoreDistribution> = {
+  calc_pressure: {
+    p10: 1000,
+    p25: 2500,
+    p50: 5000,
+    p75: 16000,
+    p90: 46000,
+    p99: 215000
+  },
+  'calc-pressure': {
+    p10: 1000,
+    p25: 2500,
+    p50: 5000,
+    p75: 16000,
+    p90: 46000,
+    p99: 215000
+  }
+};
+
 /**
  * Calculates estimated percentile [0 - 100] based on reference distribution
  */
-export function getEstimatedPercentile(ability: string, score: number): number {
-  const dist = referenceScoresByAbility[ability] ?? referenceScoresByAbility['speed']!;
+export function getEstimatedPercentile(abilityOrGameId: string, score: number): number {
+  const dist =
+    referenceScoresByGame[abilityOrGameId] ??
+    referenceScoresByAbility[abilityOrGameId] ??
+    referenceScoresByAbility['speed']!;
   if (score <= 0) return 0;
   if (score < dist.p10) return Math.max(1, Math.round((score / dist.p10) * 10));
   if (score < dist.p25) return 10 + Math.round(((score - dist.p10) / (dist.p25 - dist.p10)) * 15);

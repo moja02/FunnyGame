@@ -21,6 +21,8 @@ interface LeaderboardEntry {
 
 const GAME_NAMES: Record<string, { title: string; ability: string; icon: string }> = {
   'color-trap': { title: 'ألوان خادعة', ability: 'السرعة والتركيز ⚡', icon: '🎨' },
+  'calc-pressure': { title: 'حاسبة تحت الضغط', ability: 'الحساب والبديهة 🔢', icon: '🧮' },
+  'calc_pressure': { title: 'حاسبة تحت الضغط', ability: 'الحساب والبديهة 🔢', icon: '🧮' },
   'dont-tap': { title: 'لا تضغط!', ability: 'السرعة والتركيز ⚡', icon: '🛑' },
   'dont_tap': { title: 'لا تضغط!', ability: 'السرعة والتركيز ⚡', icon: '🛑' },
   'odd-one-out': { title: 'الدخيل', ability: 'السرعة والتركيز ⚡', icon: '👁️' },

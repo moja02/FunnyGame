@@ -94,13 +94,18 @@ export function replayAndVerifyRun<P, A>(
 
       // Calculate remaining ms from recorded reaction time
       const remainingMs = Math.max(0, question.timeLimitMs - recorded.reactionTimeMs);
-      const qScore = calculateQuestionScore(
-        game.basePoints,
-        stage,
-        remainingMs,
-        question.timeLimitMs,
-        combo
-      );
+      let qScore = 0;
+      if (typeof (game as any).calculatePoints === 'function') {
+        qScore = (game as any).calculatePoints(question, recorded.answer, recorded.reactionTimeMs, combo);
+      } else {
+        qScore = calculateQuestionScore(
+          (question.payload as any)?.basePoints ?? game.basePoints,
+          stage,
+          remainingMs,
+          question.timeLimitMs,
+          combo
+        );
+      }
       score += qScore;
     } else {
       // Mistake or timeout: lose hearts and reset combo

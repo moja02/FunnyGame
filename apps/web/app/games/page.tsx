@@ -70,6 +70,16 @@ const allGames: GameItem[] = [
 
   // 2. الحساب والبديهة
   {
+    id: 'calc-pressure',
+    title: 'حاسبة تحت الضغط',
+    ability: 'math',
+    abilityName: 'الحساب والبديهة',
+    icon: '🧮',
+    description: 'عمليات حسابية متراكمة تحت ضغط الوقت، احفظ الناتج وكمل عليه قبل ما ينتهي الوقت!',
+    status: 'ready',
+    stages: '70+ مرحلة'
+  },
+  {
     id: 'speed-math',
     title: 'حساب سريع',
     ability: 'math',

@@ -25,6 +25,7 @@ import {
   sound,
   haptics
 } from '@funnygame/ui';
+import '@funnygame/game-calc-pressure';
 import '@funnygame/game-color-trap';
 import '@funnygame/game-dont-tap';
 import '@funnygame/game-odd-one-out';

@@ -2,6 +2,8 @@ import PlayClient from './PlayClient';
 
 export function generateStaticParams() {
   return [
+    { gameId: 'calc-pressure' },
+    { gameId: 'calc_pressure' },
     { gameId: 'color-trap' },
     { gameId: 'dont-tap' },
     { gameId: 'dont_tap' },

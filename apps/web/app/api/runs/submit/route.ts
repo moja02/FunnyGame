@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { serverRegistry, replayAndVerifyRun } from '@funnygame/game-core';
 import type { RunSubmissionPayload } from '@funnygame/game-core';
+import '@funnygame/game-calc-pressure';
 import '@funnygame/game-color-trap';
 import '@funnygame/game-dont-tap';
 import '@funnygame/game-odd-one-out';

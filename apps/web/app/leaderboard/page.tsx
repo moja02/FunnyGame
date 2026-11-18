@@ -5,6 +5,14 @@ import { BottomNav } from '../components/BottomNav';
 
 const readyGames = [
   {
+    id: 'calc-pressure',
+    title: 'حاسبة تحت الضغط',
+    ability: 'الحساب والبديهة 🔢',
+    icon: '🧮',
+    description: 'عمليات حسابية متراكمة تحت ضغط الوقت، احفظ الناتج وكمل عليه قبل ما ينتهي الوقت!',
+    color: 'from-amber-500/20 to-yellow-600/30 border-amber-500/40 text-amber-300'
+  },
+  {
     id: 'dont-tap',
     title: 'لا تضغط!',
     ability: 'السرعة والتركيز ⚡',

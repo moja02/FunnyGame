@@ -5,6 +5,7 @@ const nextConfig = {
   transpilePackages: [
     '@funnygame/game-core',
     '@funnygame/ui',
+    '@funnygame/game-calc-pressure',
     '@funnygame/game-color-trap',
     '@funnygame/game-dont-tap',
     '@funnygame/game-odd-one-out'
