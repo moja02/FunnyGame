@@ -52,6 +52,7 @@ export interface GameViewProps<P, A> {
   remainingMs: number;
   locked: boolean;           // During question transitions
   lastVerdict?: Verdict;
+  onStartTimer?: () => void;
 }
 
 export interface GameModule<P, A> {

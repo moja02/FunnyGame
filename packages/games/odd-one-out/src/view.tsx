@@ -61,7 +61,7 @@ const getGridStyles = (gridDim: number) => {
 
 export const OddOneOutView: React.FC<
   GameViewProps<OddOneOutQuestionPayload, OddOneOutAnswerInput>
-> = ({ question, onAnswer, locked }) => {
+> = ({ question, onAnswer, locked, onStartTimer }) => {
   const { payload } = question;
 
   // Local state
@@ -84,6 +84,15 @@ export const OddOneOutView: React.FC<
   const isAnsweredRef = useRef(false);
   const dualGridHitsRef = useRef<number[]>([]);
 
+  // Dismiss intro and trigger timer start
+  const handleDismissIntro = useCallback(() => {
+    setIntroDismissed(true);
+    questionStartTimeRef.current = Date.now();
+    sound.countdown();
+    haptics.light();
+    onStartTimer?.();
+  }, [onStartTimer]);
+
   // 1. Reset & Setup on new question
   useEffect(() => {
     setCellsGrid0(payload.grids[0] || []);
@@ -99,30 +108,28 @@ export const OddOneOutView: React.FC<
     dualGridHitsRef.current = [];
     questionStartTimeRef.current = Date.now();
 
-    // Intro card auto-dismiss after 1.8s
+    // Intro card waits for user tap (no auto-dismiss)
     if (payload.introCardAr) {
       setIntroDismissed(false);
-      const introTimer = setTimeout(() => {
-        setIntroDismissed(true);
-      }, 1800);
-      return () => clearTimeout(introTimer);
     } else {
       setIntroDismissed(true);
     }
-
-    // Flash / Hide timer
-    if (payload.hideAfterMs) {
-      const hideTimer = setTimeout(() => {
-        setIsCovered(true);
-      }, payload.hideAfterMs);
-      return () => clearTimeout(hideTimer);
-    }
-    return undefined;
   }, [question.index, payload]);
 
-  // 2. Handle Scheduled Cell Swaps
+  // 2. Flash / Hide timer (Starts ONLY AFTER intro is dismissed!)
   useEffect(() => {
-    if (!payload.scheduledSwaps || payload.scheduledSwaps.length === 0) return;
+    if (!introDismissed || !payload.hideAfterMs) return undefined;
+
+    const hideTimer = setTimeout(() => {
+      setIsCovered(true);
+    }, payload.hideAfterMs);
+
+    return () => clearTimeout(hideTimer);
+  }, [introDismissed, payload.hideAfterMs]);
+
+  // 3. Handle Scheduled Cell Swaps (Starts ONLY AFTER intro is dismissed!)
+  useEffect(() => {
+    if (!introDismissed || !payload.scheduledSwaps || payload.scheduledSwaps.length === 0) return undefined;
 
     const timers: NodeJS.Timeout[] = [];
     payload.scheduledSwaps.forEach((sw) => {
@@ -151,12 +158,12 @@ export const OddOneOutView: React.FC<
     return () => {
       timers.forEach((t) => clearTimeout(t));
     };
-  }, [question.index, payload.scheduledSwaps]);
+  }, [introDismissed, payload.scheduledSwaps]);
 
   // 3. Pointer Down Tap Handler
   const handleCellTap = useCallback(
     (gridIdx: number, cellIdx: number, isOdd: boolean) => {
-      if (locked || isAnsweredRef.current) return;
+      if (locked || isAnsweredRef.current || !introDismissed) return;
 
       const now = Date.now();
       const tMs = now - questionStartTimeRef.current;
@@ -226,6 +233,7 @@ export const OddOneOutView: React.FC<
     },
     [
       locked,
+      introDismissed,
       payload.gridCount,
       activeDualGrid,
       payload.rhythmOrder,
@@ -237,7 +245,7 @@ export const OddOneOutView: React.FC<
 
   // 4. Use Hint
   const handleUseHint = () => {
-    if (hintsAvailable <= 0 || hintActive || locked) return;
+    if (hintsAvailable <= 0 || hintActive || locked || !introDismissed) return;
     setHintsAvailable((h) => Math.max(0, h - 1));
     setHintActive(true);
     sound.countdown();
@@ -247,6 +255,11 @@ export const OddOneOutView: React.FC<
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (locked || isAnsweredRef.current) return;
+      if (!introDismissed) {
+        handleDismissIntro();
+        return;
+      }
+
       if (e.key === ' ' || e.key.toLowerCase() === 'h') {
         handleUseHint();
       } else if (payload.gridDim === 3 && payload.gridCount === 1) {
@@ -260,14 +273,15 @@ export const OddOneOutView: React.FC<
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [locked, cellsGrid0, payload.gridDim, payload.gridCount, handleCellTap]);
+  }, [locked, introDismissed, handleDismissIntro, cellsGrid0, payload.gridDim, payload.gridCount, handleCellTap]);
 
   return (
     <div className="w-full flex-1 flex flex-col justify-between select-none touch-none relative p-1 sm:p-2">
       {/* Intro Rule Card Modal (if new stage mechanic) */}
       {!introDismissed && payload.introCardAr && (
         <div
-          onClick={() => setIntroDismissed(true)}
+          onPointerDown={handleDismissIntro}
+          onClick={handleDismissIntro}
           className="absolute inset-0 z-50 bg-slate-950/85 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center animate-fadeIn cursor-pointer"
         >
           <div className="w-16 h-16 rounded-2xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-3xl mb-3 animate-bounce">

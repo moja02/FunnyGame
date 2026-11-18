@@ -191,38 +191,22 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     }
   }, [gameId, personalBest, profile.id, profile.isGuest, user?.id]);
 
-  // Load and present next question
-  const loadQuestion = useCallback(() => {
-    if (!module || !rngRef.current) return;
+  // Start timer countdown
+  const startTimer = useCallback(() => {
+    const q = currentQuestionRef.current;
+    if (!module || !q) return;
 
-    const logic = module.logic;
-    const currentCorrect = correctCountRef.current;
-    const currentStage = 1 + Math.floor(currentCorrect / logic.questionsPerStage);
-    stageRef.current = currentStage;
-    setStage(currentStage);
-
-    const cfg = logic.stageConfig(currentStage);
-    const q = logic.generate(rngRef.current, cfg, qIndexRef.current);
-
-    currentQuestionRef.current = q;
-    setCurrentQuestion(q);
-    setTimeLimitMs(q.timeLimitMs);
-    setRemainingMs(q.timeLimitMs);
-    setLastVerdict(null);
-    isLockedRef.current = false;
-    setIsLocked(false);
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
 
     let now = Date.now();
     questionStartTimeRef.current = now;
 
-    // Start requestAnimationFrame timer
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-    }
+    const isCont = !!(module.logic as any).isContinuous;
+    const duration = q.timeLimitMs;
 
-    const isCont = !!(logic as any).isContinuous;
-    const introGraceMs = isCont && (q.payload as any)?.introCardAr ? 2500 : 0;
-    const duration = q.timeLimitMs + introGraceMs;
     const tick = () => {
       const elapsed = Date.now() - now;
       const left = Math.max(0, duration - elapsed);
@@ -245,6 +229,39 @@ export default function PlayClient({ gameId }: PlayClientProps) {
 
     animFrameRef.current = requestAnimationFrame(tick);
   }, [module]);
+
+  // Load and present next question
+  const loadQuestion = useCallback(() => {
+    if (!module || !rngRef.current) return;
+
+    const logic = module.logic;
+    const currentCorrect = correctCountRef.current;
+    const currentStage = 1 + Math.floor(currentCorrect / logic.questionsPerStage);
+    stageRef.current = currentStage;
+    setStage(currentStage);
+
+    const cfg = logic.stageConfig(currentStage);
+    const q = logic.generate(rngRef.current, cfg, qIndexRef.current);
+
+    currentQuestionRef.current = q;
+    setCurrentQuestion(q);
+    setTimeLimitMs(q.timeLimitMs);
+    setRemainingMs(q.timeLimitMs);
+    setLastVerdict(null);
+    isLockedRef.current = false;
+    setIsLocked(false);
+
+    // Cancel any active animation frame
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+
+    const hasIntroCard = Boolean((q.payload as any)?.introCardAr);
+    if (!hasIntroCard) {
+      startTimer();
+    }
+  }, [module, startTimer]);
 
   // Answer handler
   const handleAnswer = useCallback((answer: any | null) => {
@@ -644,6 +661,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             remainingMs={remainingMs}
             locked={isLocked}
             lastVerdict={lastVerdict ?? undefined}
+            onStartTimer={startTimer}
           />
         </div>
       )}

@@ -22,7 +22,7 @@ interface ActiveFallingEntity extends FallingItem {
 
 export const DontTapView: React.FC<
   GameViewProps<DontTapQuestionPayload, DontTapAnswerInput>
-> = ({ question, onAnswer, locked }) => {
+> = ({ question, onAnswer, locked, onStartTimer }) => {
   const { payload } = question;
 
   // Active Game State
@@ -59,6 +59,16 @@ export const DontTapView: React.FC<
   const stageMissCountRef = useRef(0);
   const targetHitsRef = useRef(0);
 
+  // Dismiss intro and trigger timer start
+  const handleDismissIntro = useCallback(() => {
+    setIntroDismissed(true);
+    ruleSwitchTimeRef.current = Date.now();
+    lastSpawnEpochRef.current = Date.now();
+    sound.countdown();
+    haptics.light();
+    onStartTimer?.();
+  }, [onStartTimer]);
+
   // Sync ref with state
   useEffect(() => {
     activeRuleRef.current = activeRule;
@@ -86,19 +96,6 @@ export const DontTapView: React.FC<
     entitiesRef.current = [];
     setFallingEntities([]);
   }, [question.index, payload]);
-
-  // Auto-dismiss intro card after 2.0s
-  useEffect(() => {
-    if (!introDismissed && payload.introCardAr) {
-      const t = setTimeout(() => {
-        setIntroDismissed(true);
-        ruleSwitchTimeRef.current = Date.now();
-        lastSpawnEpochRef.current = Date.now();
-      }, 2000);
-      return () => clearTimeout(t);
-    }
-    return undefined;
-  }, [introDismissed, payload.introCardAr]);
 
   // 2. Rule Transition Scheduler
   useEffect(() => {
@@ -387,7 +384,11 @@ export const DontTapView: React.FC<
   // 6. Keyboard Listener (1, 2, 3 or Arrows for lanes; Space for hint)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (locked || !introDismissed) return;
+      if (locked) return;
+      if (!introDismissed) {
+        handleDismissIntro();
+        return;
+      }
 
       if (e.key === ' ' || e.key.toLowerCase() === 'h') {
         handleUseHint();
@@ -413,18 +414,15 @@ export const DontTapView: React.FC<
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [locked, introDismissed, handleItemTap]);
+  }, [locked, introDismissed, handleDismissIntro, handleItemTap]);
 
   return (
     <div className="w-full flex-1 flex flex-col justify-between select-none touch-none relative p-2 max-w-[540px] mx-auto h-full">
       {/* Intro Rule Card Modal */}
       {!introDismissed && payload.introCardAr && (
         <div
-          onClick={() => {
-            setIntroDismissed(true);
-            ruleSwitchTimeRef.current = Date.now();
-            lastSpawnEpochRef.current = Date.now();
-          }}
+          onPointerDown={handleDismissIntro}
+          onClick={handleDismissIntro}
           className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center animate-fadeIn cursor-pointer"
         >
           <div className="w-16 h-16 rounded-2xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-3xl mb-3 animate-bounce">
