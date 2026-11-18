@@ -746,7 +746,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
 
       {/* 4. Live Game Interactive Container */}
       {gameState === 'playing' && currentQuestion && (
-        <div className="flex-1 flex flex-col justify-between px-2 pt-1 pb-2 min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col px-2 pt-1 pb-6 sm:pb-8 min-h-0 overflow-hidden">
           <StageBanner
             stage={stage}
             tier={stageCfg.tier}

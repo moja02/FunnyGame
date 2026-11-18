@@ -202,7 +202,7 @@ export const CalcPressureView: React.FC<
   };
 
   return (
-    <div className="w-full flex-1 flex flex-col justify-between select-none touch-none relative px-2 py-1 max-w-[440px] mx-auto h-full min-h-0 overflow-hidden">
+    <div className="w-full flex-1 flex flex-col select-none touch-none relative px-2 pt-1 pb-6 sm:pb-8 max-w-[420px] mx-auto h-full min-h-0 overflow-hidden">
       {/* 1. Intro Rule Card Modal */}
       {!introDismissed && payload.introCardAr && (
         <div
@@ -226,7 +226,7 @@ export const CalcPressureView: React.FC<
       )}
 
       {/* 2. Top Info / Guidance Bar */}
-      <div className="shrink-0 flex items-center justify-between px-2 py-0.5 min-h-[28px] text-xs">
+      <div className="shrink-0 flex items-center justify-between px-2 py-0.5 min-h-[26px] text-xs mb-1">
         <div className="flex items-center">
           {liveTaunt ? (
             <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-amber-500/20 border border-amber-500/40 rounded-xl text-xs font-black text-amber-200 animate-fadeIn">
@@ -242,180 +242,183 @@ export const CalcPressureView: React.FC<
         </div>
       </div>
 
-      {/* 3. Center Operation Card */}
-      <div className="flex-1 min-h-[90px] max-h-[165px] bg-[#121212] border-2 border-slate-800/80 rounded-2xl sm:rounded-3xl p-3 my-1 flex flex-col items-center justify-center relative overflow-hidden shadow-xl">
-        {/* Subtle corner badge */}
-        <div className="absolute top-2 right-3 text-[10px] font-black text-slate-500 uppercase tracking-wider">
-          {payload.pattern === 'L'
-            ? 'مقارنة'
-            : payload.pattern === 'K'
-            ? 'سلسلة'
-            : payload.pattern === 'H'
-            ? 'ذاكرة'
-            : payload.pattern === 'C'
-            ? 'متراكم'
-            : 'عملية'}
-        </div>
+      {/* 3. Center Operation Card & Choice Buttons Wrapper (Centered together) */}
+      <div className="flex-1 flex flex-col justify-center gap-3 sm:gap-4 min-h-0 my-auto">
+        {/* Operation Card */}
+        <div className="w-full h-[120px] sm:h-[135px] max-h-[145px] bg-[#121212] border-2 border-slate-800/80 rounded-2xl sm:rounded-3xl px-3 py-2 flex flex-col items-center justify-center relative overflow-hidden shadow-xl shrink-0">
+          {/* Subtle corner badge */}
+          <div className="absolute top-2 right-3 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+            {payload.pattern === 'L'
+              ? 'مقارنة'
+              : payload.pattern === 'K'
+              ? 'سلسلة'
+              : payload.pattern === 'H'
+              ? 'ذاكرة'
+              : payload.pattern === 'C'
+              ? 'متراكم'
+              : 'عملية'}
+          </div>
 
-        {/* Math expression rendered in natural Arabic RTL order */}
-        <div className="w-full flex items-center justify-center font-mono font-black select-none">
-          {/* Pattern S */}
-          {payload.pattern === 'S' && renderRTLMathTokens(payload.singleExpr || '')}
+          {/* Math expression rendered in natural Arabic RTL order */}
+          <div className="w-full flex items-center justify-center font-mono font-black select-none">
+            {/* Pattern S */}
+            {payload.pattern === 'S' && renderRTLMathTokens(payload.singleExpr || '')}
 
-          {/* Pattern C */}
-          {payload.pattern === 'C' && payload.accumulatedStep && (
-            <div dir="rtl" className="flex items-center justify-center gap-3">
-              <span className="text-slate-400 text-3xl font-light">R</span>
-              <span className="text-amber-400 text-3xl sm:text-4xl font-black">
-                {payload.accumulatedStep.op}
-              </span>
-              <span
-                dir="ltr"
-                style={{ unicodeBidi: 'isolate' }}
-                className="text-4xl sm:text-5xl font-mono font-black text-amber-300 tracking-wider"
-              >
-                {payload.accumulatedStep.operand}
-              </span>
-            </div>
-          )}
-
-          {/* Pattern K */}
-          {payload.pattern === 'K' && payload.chainSteps && (
-            <div dir="rtl" className="flex flex-wrap items-center justify-center gap-2 max-w-full">
-              <div className="px-3 py-1 bg-slate-800 rounded-xl text-slate-300 font-bold text-base sm:text-lg">
-                R ({payload.previousR})
+            {/* Pattern C */}
+            {payload.pattern === 'C' && payload.accumulatedStep && (
+              <div dir="rtl" className="flex items-center justify-center gap-3">
+                <span className="text-slate-400 text-2xl sm:text-3xl font-light">R</span>
+                <span className="text-amber-400 text-2xl sm:text-3xl font-black">
+                  {payload.accumulatedStep.op}
+                </span>
+                <span
+                  dir="ltr"
+                  style={{ unicodeBidi: 'isolate' }}
+                  className="text-3xl sm:text-4xl font-mono font-black text-amber-300 tracking-wider"
+                >
+                  {payload.accumulatedStep.operand}
+                </span>
               </div>
-              {payload.chainSteps.map((step, idx) => (
-                <React.Fragment key={idx}>
-                  <span className="text-amber-400 text-lg">←</span>
-                  <div
-                    dir="rtl"
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-400/15 border border-amber-400/30 rounded-xl text-xl sm:text-2xl font-black text-amber-200 shadow-sm"
-                  >
-                    <span>{step.op}</span>
-                    <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
-                      {step.operand}
+            )}
+
+            {/* Pattern K */}
+            {payload.pattern === 'K' && payload.chainSteps && (
+              <div dir="rtl" className="flex flex-wrap items-center justify-center gap-1.5 max-w-full">
+                <div className="px-2.5 py-1 bg-slate-800 rounded-xl text-slate-300 font-bold text-sm sm:text-base">
+                  R ({payload.previousR})
+                </div>
+                {payload.chainSteps.map((step, idx) => (
+                  <React.Fragment key={idx}>
+                    <span className="text-amber-400 text-sm sm:text-base">←</span>
+                    <div
+                      dir="rtl"
+                      className="flex items-center gap-1 px-2.5 py-1 bg-amber-400/15 border border-amber-400/30 rounded-xl text-lg sm:text-xl font-black text-amber-200 shadow-sm"
+                    >
+                      <span>{step.op}</span>
+                      <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+                        {step.operand}
+                      </span>
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+
+            {/* Pattern H */}
+            {payload.pattern === 'H' && (
+              <div dir="rtl" className="flex flex-col items-center gap-1.5">
+                {payload.subPattern === 'K' && payload.chainSteps ? (
+                  <div dir="rtl" className="flex flex-wrap items-center justify-center gap-1.5 max-w-full">
+                    <div className="px-2.5 py-1 bg-slate-800/80 border border-slate-700 rounded-xl text-amber-400 font-black text-sm sm:text-base">
+                      R (؟)
+                    </div>
+                    {payload.chainSteps.map((step, idx) => (
+                      <React.Fragment key={idx}>
+                        <span className="text-amber-400 text-sm sm:text-base">←</span>
+                        <div
+                          dir="rtl"
+                          className="flex items-center gap-1 px-2.5 py-1 bg-amber-400/20 border border-amber-400/40 rounded-xl text-lg sm:text-xl font-black text-amber-100 shadow-sm"
+                        >
+                          <span>{step.op}</span>
+                          <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+                            {step.operand}
+                          </span>
+                        </div>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                ) : payload.accumulatedStep ? (
+                  <div dir="rtl" className="flex items-center justify-center gap-3">
+                    <span className="text-amber-400 text-2xl sm:text-3xl font-bold">R (؟)</span>
+                    <span className="text-amber-400 text-2xl sm:text-3xl font-black">
+                      {payload.accumulatedStep.op}
+                    </span>
+                    <span
+                      dir="ltr"
+                      style={{ unicodeBidi: 'isolate' }}
+                      className="text-3xl sm:text-4xl font-mono font-black text-amber-300 tracking-wider"
+                    >
+                      {payload.accumulatedStep.operand}
                     </span>
                   </div>
-                </React.Fragment>
-              ))}
-            </div>
-          )}
+                ) : null}
+              </div>
+            )}
 
-          {/* Pattern H */}
-          {payload.pattern === 'H' && (
-            <div dir="rtl" className="flex flex-col items-center gap-2">
-              {payload.subPattern === 'K' && payload.chainSteps ? (
-                <div dir="rtl" className="flex flex-wrap items-center justify-center gap-2 max-w-full">
-                  <div className="px-3 py-1 bg-slate-800/80 border border-slate-700 rounded-xl text-amber-400 font-black text-base sm:text-lg">
-                    R (؟)
+            {/* Pattern L */}
+            {payload.pattern === 'L' && (
+              <div className="w-full flex flex-col gap-1.5 max-w-xs">
+                <div className="flex items-center justify-between px-3 py-1 bg-slate-900/90 border border-slate-700 rounded-xl">
+                  <span className="text-xs font-bold text-slate-400">طرف A:</span>
+                  <div className="text-lg sm:text-xl font-black text-white">
+                    {renderRTLMathTokens(payload.lExprA || '')}
                   </div>
-                  {payload.chainSteps.map((step, idx) => (
-                    <React.Fragment key={idx}>
-                      <span className="text-amber-400 text-lg">←</span>
-                      <div
-                        dir="rtl"
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-400/20 border border-amber-400/40 rounded-xl text-xl sm:text-2xl font-black text-amber-100 shadow-sm"
-                      >
-                        <span>{step.op}</span>
-                        <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
-                          {step.operand}
-                        </span>
-                      </div>
-                    </React.Fragment>
-                  ))}
                 </div>
-              ) : payload.accumulatedStep ? (
-                <div dir="rtl" className="flex items-center justify-center gap-3">
-                  <span className="text-amber-400 text-3xl font-bold">R (؟)</span>
-                  <span className="text-amber-400 text-3xl sm:text-4xl font-black">
-                    {payload.accumulatedStep.op}
-                  </span>
-                  <span
-                    dir="ltr"
-                    style={{ unicodeBidi: 'isolate' }}
-                    className="text-4xl sm:text-5xl font-mono font-black text-amber-300 tracking-wider"
-                  >
-                    {payload.accumulatedStep.operand}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-          )}
-
-          {/* Pattern L */}
-          {payload.pattern === 'L' && (
-            <div className="w-full flex flex-col gap-2 max-w-xs">
-              <div className="flex items-center justify-between px-3.5 py-1.5 bg-slate-900/90 border border-slate-700 rounded-2xl">
-                <span className="text-xs font-bold text-slate-400">طرف A:</span>
-                <div className="text-xl sm:text-2xl font-black text-white">
-                  {renderRTLMathTokens(payload.lExprA || '')}
+                <div className="flex items-center justify-between px-3 py-1 bg-slate-900/90 border border-slate-700 rounded-xl">
+                  <span className="text-xs font-bold text-slate-400">طرف B:</span>
+                  <div className="text-lg sm:text-xl font-black text-white">
+                    {renderRTLMathTokens(payload.lExprB || '')}
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center justify-between px-3.5 py-1.5 bg-slate-900/90 border border-slate-700 rounded-2xl">
-                <span className="text-xs font-bold text-slate-400">طرف B:</span>
-                <div className="text-xl sm:text-2xl font-black text-white">
-                  {renderRTLMathTokens(payload.lExprB || '')}
-                </div>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* 4. Three Vertical Choice Buttons */}
-      <div className="shrink-0 flex flex-col gap-2 pb-1 w-full">
-        {payload.choices.map((choiceVal, idx) => {
-          const isSelected = selectedChoice === idx;
-          const isCorrectChoice = idx === payload.correctChoiceIndex;
-          const hasAnswered = selectedChoice !== null;
+        {/* 4. Three Vertical Choice Buttons (Raised up with balanced spacing) */}
+        <div className="shrink-0 flex flex-col gap-2 w-full">
+          {payload.choices.map((choiceVal, idx) => {
+            const isSelected = selectedChoice === idx;
+            const isCorrectChoice = idx === payload.correctChoiceIndex;
+            const hasAnswered = selectedChoice !== null;
 
-          let btnBg = 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-white';
-          if (hasAnswered) {
-            if (isCorrectChoice) {
-              btnBg =
-                'bg-emerald-600 border-emerald-400 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] scale-[1.02]';
-            } else if (isSelected) {
-              btnBg =
-                'bg-rose-600 border-rose-400 text-white animate-shake shadow-[0_0_15px_rgba(244,63,94,0.4)]';
-            } else {
-              btnBg = 'bg-slate-950/60 border-slate-800/40 text-slate-500 opacity-40';
+            let btnBg = 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-white';
+            if (hasAnswered) {
+              if (isCorrectChoice) {
+                btnBg =
+                  'bg-emerald-600 border-emerald-400 text-white shadow-[0_0_20px_rgba(16,185,129,0.5)] scale-[1.02]';
+              } else if (isSelected) {
+                btnBg =
+                  'bg-rose-600 border-rose-400 text-white animate-shake shadow-[0_0_15px_rgba(244,63,94,0.4)]';
+              } else {
+                btnBg = 'bg-slate-950/60 border-slate-800/40 text-slate-500 opacity-40';
+              }
             }
-          }
 
-          return (
-            <button
-              key={idx}
-              onClick={() => handleSelect(idx, choiceVal)}
-              disabled={locked || isAnsweredRef.current || !introDismissed}
-              className={`w-full h-[52px] sm:h-[58px] min-h-[48px] max-h-[60px] rounded-2xl border-2 flex items-center justify-between px-5 transition-all duration-150 relative active:scale-95 cursor-pointer shadow-md ${btnBg}`}
-            >
-              {/* Keyboard digit hint */}
-              <span className="text-xs font-mono font-bold text-slate-400/80 px-2 py-0.5 rounded-lg bg-black/25">
-                {idx + 1}
-              </span>
-
-              {/* Number strictly LTR */}
-              <span
-                dir="ltr"
-                style={{ unicodeBidi: 'isolate' }}
-                className="font-mono text-2xl sm:text-3xl font-black tracking-wider text-center flex-1"
+            return (
+              <button
+                key={idx}
+                onClick={() => handleSelect(idx, choiceVal)}
+                disabled={locked || isAnsweredRef.current || !introDismissed}
+                className={`w-full h-[50px] sm:h-[56px] min-h-[46px] rounded-2xl border-2 flex items-center justify-between px-5 transition-all duration-150 relative active:scale-95 cursor-pointer shadow-md ${btnBg}`}
               >
-                {choiceVal}
-              </span>
+                {/* Keyboard digit hint */}
+                <span className="text-xs font-mono font-bold text-slate-400/80 px-2 py-0.5 rounded-lg bg-black/25">
+                  {idx + 1}
+                </span>
 
-              {/* Feedback icon */}
-              <div className="w-6 flex items-center justify-center">
-                {hasAnswered && isCorrectChoice && (
-                  <span className="text-xl animate-scaleUp">✓</span>
-                )}
-                {hasAnswered && isSelected && !isCorrectChoice && (
-                  <span className="text-xl animate-scaleUp">✗</span>
-                )}
-              </div>
-            </button>
-          );
-        })}
+                {/* Number strictly LTR */}
+                <span
+                  dir="ltr"
+                  style={{ unicodeBidi: 'isolate' }}
+                  className="font-mono text-2xl sm:text-3xl font-black tracking-wider text-center flex-1"
+                >
+                  {choiceVal}
+                </span>
+
+                {/* Feedback icon */}
+                <div className="w-6 flex items-center justify-center">
+                  {hasAnswered && isCorrectChoice && (
+                    <span className="text-xl animate-scaleUp">✓</span>
+                  )}
+                  {hasAnswered && isSelected && !isCorrectChoice && (
+                    <span className="text-xl animate-scaleUp">✗</span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
