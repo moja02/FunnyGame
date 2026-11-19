@@ -11,7 +11,8 @@ const nextConfig = {
     '@funnygame/game-follow-pattern',
     '@funnygame/game-math-bridge',
     '@funnygame/game-number-hunt',
-    '@funnygame/game-odd-one-out'
+    '@funnygame/game-odd-one-out',
+    '@funnygame/game-where-did-it-go'
   ],
   reactStrictMode: true,
   eslint: {

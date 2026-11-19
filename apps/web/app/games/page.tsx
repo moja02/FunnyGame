@@ -142,6 +142,16 @@ const allGames: GameItem[] = [
 
   // 3. الذاكرة والاستدعاء
   {
+    id: 'where-did-it-go',
+    title: 'أين اختفت؟',
+    ability: 'memory',
+    abilityName: 'الذاكرة والاستدعاء',
+    icon: '🔍',
+    description: 'احفظ أماكن الصور قبل ما تنقلب البطاقات وتتبدل أماكنها، وافتح المطلوب بالترتيب!',
+    status: 'ready',
+    stages: '70+ مرحلة'
+  },
+  {
     id: 'follow-pattern',
     title: 'اتبع النمط',
     ability: 'memory',

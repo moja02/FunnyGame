@@ -10,6 +10,8 @@ export function generateStaticParams() {
     { gameId: 'number_hunt' },
     { gameId: 'follow-pattern' },
     { gameId: 'follow_pattern' },
+    { gameId: 'where-did-it-go' },
+    { gameId: 'where_did_it_go' },
     { gameId: 'color-trap' },
     { gameId: 'dont-tap' },
     { gameId: 'dont_tap' },

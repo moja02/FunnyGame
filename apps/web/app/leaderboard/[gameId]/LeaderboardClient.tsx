@@ -29,6 +29,8 @@ const GAME_NAMES: Record<string, { title: string; ability: string; icon: string 
   'number_hunt': { title: 'صيد الرقم', ability: 'الحساب والبديهة 🔢', icon: '🎯' },
   'follow-pattern': { title: 'اتبع النمط', ability: 'الذاكرة والاستدعاء 🧠', icon: '🧩' },
   'follow_pattern': { title: 'اتبع النمط', ability: 'الذاكرة والاستدعاء 🧠', icon: '🧩' },
+  'where-did-it-go': { title: 'أين اختفت؟', ability: 'الذاكرة والاستدعاء 🧠', icon: '🔍' },
+  'where_did_it_go': { title: 'أين اختفت؟', ability: 'الذاكرة والاستدعاء 🧠', icon: '🔍' },
   'dont-tap': { title: 'لا تضغط!', ability: 'السرعة والتركيز ⚡', icon: '🛑' },
   'dont_tap': { title: 'لا تضغط!', ability: 'السرعة والتركيز ⚡', icon: '🛑' },
   'odd-one-out': { title: 'الدخيل', ability: 'السرعة والتركيز ⚡', icon: '👁️' },

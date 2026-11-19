@@ -32,6 +32,7 @@ import '@funnygame/game-follow-pattern';
 import '@funnygame/game-math-bridge';
 import '@funnygame/game-number-hunt';
 import '@funnygame/game-odd-one-out';
+import '@funnygame/game-where-did-it-go';
 
 const GAME_METADATA: Record<
   string,
@@ -43,6 +44,30 @@ const GAME_METADATA: Record<
     rules: string[];
   }
 > = {
+  'where-did-it-go': {
+    title: 'أين اختفت؟',
+    abilityName: 'الذاكرة والاستدعاء 🧠',
+    icon: '🔍',
+    abilityBadgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    rules: [
+      'احفظ أماكن الصور والرموز في الشبكة قبل ما تنقلب البطاقات.',
+      'راقب حركة تبديل الأماكن بعد الانقلاب إن وجدت.',
+      'اضغط على البطاقات المطلوبة بالترتيب المحدد من اليمين لليسار.',
+      'تلميح (💡 1) متاح في كل مرحلة يعتم 50% من البطاقات الزائدة.'
+    ]
+  },
+  'where_did_it_go': {
+    title: 'أين اختفت؟',
+    abilityName: 'الذاكرة والاستدعاء 🧠',
+    icon: '🔍',
+    abilityBadgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    rules: [
+      'احفظ أماكن الصور والرموز في الشبكة قبل ما تنقلب البطاقات.',
+      'راقب حركة تبديل الأماكن بعد الانقلاب إن وجدت.',
+      'اضغط على البطاقات المطلوبة بالترتيب المحدد من اليمين لليسار.',
+      'تلميح (💡 1) متاح في كل مرحلة يعتم 50% من البطاقات الزائدة.'
+    ]
+  },
   'follow-pattern': {
     title: 'اتبع النمط',
     abilityName: 'الذاكرة والاستدعاء 🧠',
@@ -434,7 +459,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       (logic as any).manualTimerStart ||
       (q.payload as any)?.manualTimerStart ||
       gameId === 'follow-pattern' ||
-      gameId === 'follow_pattern'
+      gameId === 'follow_pattern' ||
+      gameId === 'where-did-it-go' ||
+      gameId === 'where_did_it_go'
     );
     if (!hasIntroCard && !hasManualTimer) {
       startTimer();

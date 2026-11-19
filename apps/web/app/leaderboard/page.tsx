@@ -37,6 +37,14 @@ const readyGames = [
     color: 'from-purple-500/20 to-indigo-600/30 border-purple-500/40 text-purple-300'
   },
   {
+    id: 'where-did-it-go',
+    title: 'أين اختفت؟',
+    ability: 'الذاكرة والاستدعاء 🧠',
+    icon: '🔍',
+    description: 'احفظ أماكن الصور والرموز قبل أن تنقلب وتتبدل، واعثر على الأهداف بالترتيب!',
+    color: 'from-amber-500/20 to-orange-600/30 border-amber-500/40 text-amber-300'
+  },
+  {
     id: 'dont-tap',
     title: 'لا تضغط!',
     ability: 'السرعة والتركيز ⚡',
