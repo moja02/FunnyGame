@@ -136,23 +136,23 @@ export function evaluateExpression(exprStr: string): number | null {
 export function getEquationCost(pattern: MathBridgePattern): number {
   switch (pattern) {
     case 'single_op':
-      return 2.0;
-    case 'parentheses':
-      return 2.8;
+      return 2.5;
     case 'missing_num':
-      return 3.2;
+      return 4.2;
     case 'double_op':
-      return 3.6;
+      return 4.6;
+    case 'parentheses':
+      return 4.4;
     case 'negative_res':
-      return 3.2;
+      return 4.2;
     case 'triple_exponents':
     case 'square_roots':
     case 'modulo':
-      return 4.5;
+      return 4.8;
     case 'linked_eq':
       return 5.5;
     default:
-      return 2.0;
+      return 2.5;
   }
 }
 
@@ -165,22 +165,37 @@ export function calculateTimeLimit(
   isBreathing: boolean,
   hasNegatives: boolean
 ): number {
-  const cost = getEquationCost(pattern);
+  let rawTq: number;
 
-  // u(s) formula from specification:
-  // u(s) = max(0.55, 1.6 - 0.025 * (s - 1))
-  // With early stage calibration for comfortable learning (u(1) = 4.0 -> T_q = 8.0s)
-  let u = Math.max(0.55, 1.6 - 0.025 * (stage - 1));
-  if (stage <= 4) {
-    u = 4.0 - 0.10 * (stage - 1); // 4.0s down to 3.7s
+  if (pattern === 'single_op') {
+    // Fast, snappy start for single operations (Stages 1-4: 5.0s down to 4.2s)
+    const baseSingleTime = Math.max(2.5, 5.0 - 0.25 * (stage - 1));
+    rawTq = baseSingleTime;
+  } else {
+    // Compound operations (double op, parentheses, exponents, roots, linked eq)
+    // require significant mental calculation and AST parsing.
+    // They start generous (7.5s - 8.5s) and decay very gently.
+    const cost = getEquationCost(pattern);
+    // Base speed factor for compound: begins around 1.65 and decreases slowly (-0.015 per stage)
+    const u = Math.max(0.9, 1.65 - 0.015 * Math.max(0, stage - 5));
+
+    // Cognitive buffer for complex multi-slot/algebra operations
+    let buffer = 0;
+    if (pattern === 'linked_eq') buffer += 1.2;
+    else if (pattern === 'double_op' || pattern === 'parentheses') buffer += 0.5;
+
+    rawTq = u * cost + buffer;
   }
 
   let eq = 0;
   if (isBreathing) eq += 0.8;
   if (hasNegatives) eq += 0.4;
 
-  const rawTq = u * cost + eq;
-  return Math.max(2.0, Math.round(rawTq * 10) / 10);
+  const totalTq = rawTq + eq;
+
+  // Floors: compound operations never drop below 4.0s (4.5s for linked_eq)
+  const floor = pattern === 'single_op' ? 2.0 : pattern === 'linked_eq' ? 4.5 : 4.0;
+  return Math.max(floor, Math.round(totalTq * 10) / 10);
 }
 
 /**
