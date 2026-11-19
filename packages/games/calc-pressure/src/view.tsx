@@ -214,7 +214,7 @@ export const CalcPressureView: React.FC<
             🧮
           </div>
           <div className="text-xs font-bold text-amber-400 mb-1">
-            آلية جديدة في المرحلة {payload.stage}
+            {payload.stage === 1 ? 'طريقة اللعب' : `آلية جديدة في المرحلة ${payload.stage}`}
           </div>
           <h2 className="text-xl font-black text-white max-w-xs leading-relaxed mb-4">
             {payload.introCardAr}

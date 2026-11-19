@@ -94,8 +94,8 @@ export class CalcPressureLogic
       // Pick pattern
       const pattern = pickQuestionPattern(localRng, stage, rules.isBoss, rules.isBreathing);
 
-      // Intro card on question 0 of new mechanics
-      const introCardAr = qInStage === 0 ? INTRO_CARDS[stage] : undefined;
+      // Intro card ONLY on question 0 at the very start of the match (Stage 1)
+      const introCardAr = (index === 0 && stage === 1) ? INTRO_CARDS[1] : undefined;
 
       // Target position for balanced 33.3% distribution: 0 (top), 1 (mid), 2 (bottom)
       const targetPos = (qInStage % 3) as 0 | 1 | 2;

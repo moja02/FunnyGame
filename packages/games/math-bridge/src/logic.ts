@@ -70,13 +70,12 @@ export class MathBridgeLogic
     index: number
   ): Question<MathBridgeQuestionPayload> {
     const stage = cfg.stage;
-    const qInStage = index % this.questionsPerStage;
 
     const payload = generateMathBridgeQuestion(rng, stage, index);
 
-    // Intro card on question 0 of landmark stages
-    if (qInStage === 0 && INTRO_CARDS[stage]) {
-      payload.introCardAr = INTRO_CARDS[stage];
+    // Intro card ONLY on question 0 at the very start of the match (Stage 1)
+    if (index === 0 && stage === 1 && INTRO_CARDS[1]) {
+      payload.introCardAr = INTRO_CARDS[1];
     }
 
     return {
