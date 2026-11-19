@@ -45,6 +45,14 @@ const readyGames = [
     color: 'from-amber-500/20 to-orange-600/30 border-amber-500/40 text-amber-300'
   },
   {
+    id: 'watch-and-judge',
+    title: 'شاهد واحكم',
+    ability: 'الذاكرة والاستدعاء 🧠',
+    icon: '👁️',
+    description: 'احفظ تفاصيل المشهد الأول، واكتشف ما الذي تغير في المشهد الثاني أو اضغط ما في تغيير!',
+    color: 'from-purple-500/20 to-indigo-600/30 border-purple-500/40 text-purple-300'
+  },
+  {
     id: 'dont-tap',
     title: 'لا تضغط!',
     ability: 'السرعة والتركيز ⚡',

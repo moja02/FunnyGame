@@ -46,6 +46,7 @@ jobs:
           pnpm --filter @funnygame/game-number-hunt build
           pnpm --filter @funnygame/game-follow-pattern build
           pnpm --filter @funnygame/game-where-did-it-go build
+          pnpm --filter @funnygame/game-watch-and-judge build
 
       - name: Export Next.js for GitHub Pages
         run: pnpm --filter web build

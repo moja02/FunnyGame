@@ -12,6 +12,8 @@ export function generateStaticParams() {
     { gameId: 'follow_pattern' },
     { gameId: 'where-did-it-go' },
     { gameId: 'where_did_it_go' },
+    { gameId: 'watch-and-judge' },
+    { gameId: 'watch_and_judge' },
     { gameId: 'color-trap' },
     { gameId: 'dont-tap' },
     { gameId: 'dont_tap' },

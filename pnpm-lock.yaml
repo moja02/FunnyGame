@@ -199,6 +199,9 @@ importers:
       '@funnygame/game-odd-one-out':
         specifier: workspace:*
         version: link:../../packages/games/odd-one-out
+      '@funnygame/game-watch-and-judge':
+        specifier: workspace:*
+        version: link:../../packages/games/watch-and-judge
       '@funnygame/game-where-did-it-go':
         specifier: workspace:*
         version: link:../../packages/games/where-did-it-go
@@ -421,6 +424,34 @@ importers:
         version: 2.1.9(@types/node@20.19.43)
 
   packages/games/odd-one-out:
+    dependencies:
+      '@funnygame/game-core':
+        specifier: workspace:*
+        version: link:../../game-core
+      '@funnygame/ui':
+        specifier: workspace:*
+        version: link:../../ui
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.12
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.1
+        version: 18.3.7(@types/react@18.3.31)
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.4
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/games/watch-and-judge:
     dependencies:
       '@funnygame/game-core':
         specifier: workspace:*

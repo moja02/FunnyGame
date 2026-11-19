@@ -9,6 +9,7 @@ import '@funnygame/game-color-trap';
 import '@funnygame/game-dont-tap';
 import '@funnygame/game-odd-one-out';
 import '@funnygame/game-where-did-it-go';
+import '@funnygame/game-watch-and-judge';
 import { getSupabaseServerClient } from '@/lib/supabase-server';
 
 export async function POST(req: Request) {

@@ -19,6 +19,7 @@
     "@funnygame/game-math-bridge": "workspace:*",
     "@funnygame/game-number-hunt": "workspace:*",
     "@funnygame/game-odd-one-out": "workspace:*",
+    "@funnygame/game-watch-and-judge": "workspace:*",
     "@funnygame/game-where-did-it-go": "workspace:*",
     "@funnygame/ui": "workspace:*",
     "@supabase/ssr": "^0.5.2",

@@ -32,6 +32,7 @@ import '@funnygame/game-follow-pattern';
 import '@funnygame/game-math-bridge';
 import '@funnygame/game-number-hunt';
 import '@funnygame/game-odd-one-out';
+import '@funnygame/game-watch-and-judge';
 import '@funnygame/game-where-did-it-go';
 
 const GAME_METADATA: Record<
@@ -44,6 +45,30 @@ const GAME_METADATA: Record<
     rules: string[];
   }
 > = {
+  'watch-and-judge': {
+    title: 'شاهد واحكم',
+    abilityName: 'الذاكرة والاستدعاء 🧠',
+    icon: '👁️',
+    abilityBadgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+    rules: [
+      'احفظ تفاصيل المشهد الأول بدقة قبل ما يختفي.',
+      'في المشهد الثاني، اضغط على الخلية المتغيرة (أو التي اختفى منها عنصر).',
+      'إذا تطابق المشهدان تماماً، اضغط زر [ ما في تغيير ✓ ].',
+      'كل مرحلة تضم 3 جولات، والنجاح يتطلب إصابة جولتين على الأقل.'
+    ]
+  },
+  'watch_and_judge': {
+    title: 'شاهد واحكم',
+    abilityName: 'الذاكرة والاستدعاء 🧠',
+    icon: '👁️',
+    abilityBadgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+    rules: [
+      'احفظ تفاصيل المشهد الأول بدقة قبل ما يختفي.',
+      'في المشهد الثاني، اضغط على الخلية المتغيرة (أو التي اختفى منها عنصر).',
+      'إذا تطابق المشهدان تماماً، اضغط زر [ ما في تغيير ✓ ].',
+      'كل مرحلة تضم 3 جولات، والنجاح يتطلب إصابة جولتين على الأقل.'
+    ]
+  },
   'where-did-it-go': {
     title: 'أين اختفت؟',
     abilityName: 'الذاكرة والاستدعاء 🧠',
@@ -461,7 +486,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       gameId === 'follow-pattern' ||
       gameId === 'follow_pattern' ||
       gameId === 'where-did-it-go' ||
-      gameId === 'where_did_it_go'
+      gameId === 'where_did_it_go' ||
+      gameId === 'watch-and-judge' ||
+      gameId === 'watch_and_judge'
     );
     if (!hasIntroCard && !hasManualTimer) {
       startTimer();

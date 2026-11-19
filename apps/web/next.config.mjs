@@ -12,6 +12,7 @@ const nextConfig = {
     '@funnygame/game-math-bridge',
     '@funnygame/game-number-hunt',
     '@funnygame/game-odd-one-out',
+    '@funnygame/game-watch-and-judge',
     '@funnygame/game-where-did-it-go'
   ],
   reactStrictMode: true,

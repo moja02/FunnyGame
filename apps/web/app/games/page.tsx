@@ -162,6 +162,16 @@ const allGames: GameItem[] = [
     stages: '70+ مرحلة'
   },
   {
+    id: 'watch-and-judge',
+    title: 'شاهد واحكم',
+    ability: 'memory',
+    abilityName: 'الذاكرة والاستدعاء',
+    icon: '👁️',
+    description: 'احفظ تفاصيل المشهد الأول، واكتشف ما الذي تغير في المشهد الثاني أو اضغط ما في تغيير!',
+    status: 'ready',
+    stages: '70+ مرحلة'
+  },
+  {
     id: 'matrix-memory',
     title: 'مصفوفة الذاكرة',
     ability: 'memory',
