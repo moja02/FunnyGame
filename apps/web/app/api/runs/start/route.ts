@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { serverRegistry } from '@funnygame/game-core';
 import '@funnygame/game-calc-pressure';
+import '@funnygame/game-follow-pattern';
 import '@funnygame/game-math-bridge';
 import '@funnygame/game-number-hunt';
 import '@funnygame/game-color-trap';
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
     }
 
     // Verify game exists in server registry (or allow known registered game IDs)
-    if (!serverRegistry.has(gameId) && gameId !== 'calc-pressure' && gameId !== 'calc_pressure' && gameId !== 'math-bridge' && gameId !== 'math_bridge' && gameId !== 'number-hunt' && gameId !== 'number_hunt' && gameId !== 'time-duel' && gameId !== 'speed-math' && gameId !== 'matrix-memory' && gameId !== 'color-trap' && gameId !== 'dont-tap' && gameId !== 'dont_tap' && gameId !== 'odd-one-out' && gameId !== 'odd_one_out') {
+    if (!serverRegistry.has(gameId) && gameId !== 'calc-pressure' && gameId !== 'calc_pressure' && gameId !== 'math-bridge' && gameId !== 'math_bridge' && gameId !== 'number-hunt' && gameId !== 'number_hunt' && gameId !== 'follow-pattern' && gameId !== 'follow_pattern' && gameId !== 'time-duel' && gameId !== 'speed-math' && gameId !== 'matrix-memory' && gameId !== 'color-trap' && gameId !== 'dont-tap' && gameId !== 'dont_tap' && gameId !== 'odd-one-out' && gameId !== 'odd_one_out') {
       return NextResponse.json({ error: `Game '${gameId}' is not registered` }, { status: 404 });
     }
 

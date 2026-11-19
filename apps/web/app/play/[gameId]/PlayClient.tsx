@@ -28,6 +28,7 @@ import {
 import '@funnygame/game-calc-pressure';
 import '@funnygame/game-color-trap';
 import '@funnygame/game-dont-tap';
+import '@funnygame/game-follow-pattern';
 import '@funnygame/game-math-bridge';
 import '@funnygame/game-number-hunt';
 import '@funnygame/game-odd-one-out';
@@ -42,6 +43,30 @@ const GAME_METADATA: Record<
     rules: string[];
   }
 > = {
+  'follow-pattern': {
+    title: 'اتبع النمط',
+    abilityName: 'الذاكرة والاستدعاء 🧠',
+    icon: '🧩',
+    abilityBadgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+    rules: [
+      'راقب تسلسل إضاءة ونغمات الأزرار أثناء طور العرض.',
+      'في دورك، أعد الضغط على الأزرار بنفس الترتيب المطلوب.',
+      'انتبه للقواعد المتغيرة: الترتيب بالعكس، تخطي الأحمر، وتبديل الأماكن!',
+      'تلميح (💡 1) متاح في كل مرحلة يضيء الزر القادم فوراً.'
+    ]
+  },
+  'follow_pattern': {
+    title: 'اتبع النمط',
+    abilityName: 'الذاكرة والاستدعاء 🧠',
+    icon: '🧩',
+    abilityBadgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+    rules: [
+      'راقب تسلسل إضاءة ونغمات الأزرار أثناء طور العرض.',
+      'في دورك، أعد الضغط على الأزرار بنفس الترتيب المطلوب.',
+      'انتبه للقواعد المتغيرة: الترتيب بالعكس، تخطي الأحمر، وتبديل الأماكن!',
+      'تلميح (💡 1) متاح في كل مرحلة يضيء الزر القادم فوراً.'
+    ]
+  },
   'number-hunt': {
     title: 'صيد الرقم',
     abilityName: 'الحساب والبديهة 🔢',

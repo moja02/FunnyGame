@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { serverRegistry, replayAndVerifyRun } from '@funnygame/game-core';
 import type { RunSubmissionPayload } from '@funnygame/game-core';
 import '@funnygame/game-calc-pressure';
+import '@funnygame/game-follow-pattern';
 import '@funnygame/game-math-bridge';
 import '@funnygame/game-number-hunt';
 import '@funnygame/game-color-trap';

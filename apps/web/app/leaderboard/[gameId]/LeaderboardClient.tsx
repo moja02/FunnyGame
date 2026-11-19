@@ -27,6 +27,8 @@ const GAME_NAMES: Record<string, { title: string; ability: string; icon: string 
   'math_bridge': { title: 'الجسر الحسابي', ability: 'الحساب والبديهة 🔢', icon: '🌉' },
   'number-hunt': { title: 'صيد الرقم', ability: 'الحساب والبديهة 🔢', icon: '🎯' },
   'number_hunt': { title: 'صيد الرقم', ability: 'الحساب والبديهة 🔢', icon: '🎯' },
+  'follow-pattern': { title: 'اتبع النمط', ability: 'الذاكرة والاستدعاء 🧠', icon: '🧩' },
+  'follow_pattern': { title: 'اتبع النمط', ability: 'الذاكرة والاستدعاء 🧠', icon: '🧩' },
   'dont-tap': { title: 'لا تضغط!', ability: 'السرعة والتركيز ⚡', icon: '🛑' },
   'dont_tap': { title: 'لا تضغط!', ability: 'السرعة والتركيز ⚡', icon: '🛑' },
   'odd-one-out': { title: 'الدخيل', ability: 'السرعة والتركيز ⚡', icon: '👁️' },

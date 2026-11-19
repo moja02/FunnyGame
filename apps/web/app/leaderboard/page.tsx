@@ -29,6 +29,14 @@ const readyGames = [
     color: 'from-cyan-500/20 to-teal-600/30 border-cyan-500/40 text-cyan-300'
   },
   {
+    id: 'follow-pattern',
+    title: 'اتبع النمط',
+    ability: 'الذاكرة والاستدعاء 🧠',
+    icon: '🧩',
+    description: 'احفظ تسلسل إضاءة ونغمات الأزرار وعيدها بالترتيب أو بالعكس وبدون غلطة!',
+    color: 'from-purple-500/20 to-indigo-600/30 border-purple-500/40 text-purple-300'
+  },
+  {
     id: 'dont-tap',
     title: 'لا تضغط!',
     ability: 'السرعة والتركيز ⚡',

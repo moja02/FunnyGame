@@ -142,6 +142,16 @@ const allGames: GameItem[] = [
 
   // 3. الذاكرة والاستدعاء
   {
+    id: 'follow-pattern',
+    title: 'اتبع النمط',
+    ability: 'memory',
+    abilityName: 'الذاكرة والاستدعاء',
+    icon: '🧩',
+    description: 'احفظ تسلسل إضاءة ونغمات الأزرار وعيدها بالترتيب أو بالعكس وبدون غلطة!',
+    status: 'ready',
+    stages: '70+ مرحلة'
+  },
+  {
     id: 'matrix-memory',
     title: 'مصفوفة الذاكرة',
     ability: 'memory',

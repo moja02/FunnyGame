@@ -8,6 +8,7 @@ const nextConfig = {
     '@funnygame/game-calc-pressure',
     '@funnygame/game-color-trap',
     '@funnygame/game-dont-tap',
+    '@funnygame/game-follow-pattern',
     '@funnygame/game-math-bridge',
     '@funnygame/game-number-hunt',
     '@funnygame/game-odd-one-out'
