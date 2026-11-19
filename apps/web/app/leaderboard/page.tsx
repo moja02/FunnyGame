@@ -21,6 +21,14 @@ const readyGames = [
     color: 'from-indigo-500/20 to-blue-600/30 border-indigo-500/40 text-indigo-300'
   },
   {
+    id: 'number-hunt',
+    title: 'صيد الرقم',
+    ability: 'الحساب والبديهة 🔢',
+    icon: '🎯',
+    description: 'ادمج بطاقات الأرقام بالعمليات الحسابية وصيد الرقم الهدف قبل نفاد الوقت!',
+    color: 'from-cyan-500/20 to-teal-600/30 border-cyan-500/40 text-cyan-300'
+  },
+  {
     id: 'dont-tap',
     title: 'لا تضغط!',
     ability: 'السرعة والتركيز ⚡',

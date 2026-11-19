@@ -29,6 +29,7 @@ import '@funnygame/game-calc-pressure';
 import '@funnygame/game-color-trap';
 import '@funnygame/game-dont-tap';
 import '@funnygame/game-math-bridge';
+import '@funnygame/game-number-hunt';
 import '@funnygame/game-odd-one-out';
 
 const GAME_METADATA: Record<
@@ -41,6 +42,30 @@ const GAME_METADATA: Record<
     rules: string[];
   }
 > = {
+  'number-hunt': {
+    title: 'صيد الرقم',
+    abilityName: 'الحساب والبديهة 🔢',
+    icon: '🎯',
+    abilityBadgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+    rules: [
+      'ادمج بطاقات الأرقام بالعمليات الحسابية للوصول للرقم الهدف بالضبط.',
+      'اختر بطاقة أولى، ثم عملية، ثم بطاقة ثانية لتندمج في رقم جديد.',
+      'عندك زر تراجع (Undo) وزر مسح (Clear) مجانيين في أي وقت بدون عقوبة.',
+      'تلميح (💡 1) متاح في كل مرحلة ينفذ أول خطوة صحيحة تلقائياً.'
+    ]
+  },
+  'number_hunt': {
+    title: 'صيد الرقم',
+    abilityName: 'الحساب والبديهة 🔢',
+    icon: '🎯',
+    abilityBadgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+    rules: [
+      'ادمج بطاقات الأرقام بالعمليات الحسابية للوصول للرقم الهدف بالضبط.',
+      'اختر بطاقة أولى، ثم عملية، ثم بطاقة ثانية لتندمج في رقم جديد.',
+      'عندك زر تراجع (Undo) وزر مسح (Clear) مجانيين في أي وقت بدون عقوبة.',
+      'تلميح (💡 1) متاح في كل مرحلة ينفذ أول خطوة صحيحة تلقائياً.'
+    ]
+  },
   'math-bridge': {
     title: 'الجسر الحسابي',
     abilityName: 'الحساب والبديهة 🔢',

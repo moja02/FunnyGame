@@ -16,6 +16,7 @@
     "@funnygame/game-color-trap": "workspace:*",
     "@funnygame/game-dont-tap": "workspace:*",
     "@funnygame/game-math-bridge": "workspace:*",
+    "@funnygame/game-number-hunt": "workspace:*",
     "@funnygame/game-odd-one-out": "workspace:*",
     "@funnygame/ui": "workspace:*",
     "@supabase/ssr": "^0.5.2",

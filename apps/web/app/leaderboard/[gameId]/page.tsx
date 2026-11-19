@@ -6,6 +6,8 @@ export function generateStaticParams() {
     { gameId: 'calc_pressure' },
     { gameId: 'math-bridge' },
     { gameId: 'math_bridge' },
+    { gameId: 'number-hunt' },
+    { gameId: 'number_hunt' },
     { gameId: 'color-trap' },
     { gameId: 'dont-tap' },
     { gameId: 'dont_tap' },

@@ -9,6 +9,7 @@ const nextConfig = {
     '@funnygame/game-color-trap',
     '@funnygame/game-dont-tap',
     '@funnygame/game-math-bridge',
+    '@funnygame/game-number-hunt',
     '@funnygame/game-odd-one-out'
   ],
   reactStrictMode: true,

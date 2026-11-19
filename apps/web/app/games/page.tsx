@@ -90,6 +90,16 @@ const allGames: GameItem[] = [
     stages: '70+ مرحلة'
   },
   {
+    id: 'number-hunt',
+    title: 'صيد الرقم',
+    ability: 'math',
+    abilityName: 'الحساب والبديهة',
+    icon: '🎯',
+    description: 'ادمج بطاقات الأرقام بالعمليات الحسابية وصيد الرقم الهدف قبل نفاد الوقت!',
+    status: 'ready',
+    stages: '70+ مرحلة'
+  },
+  {
     id: 'speed-math',
     title: 'حساب سريع',
     ability: 'math',
