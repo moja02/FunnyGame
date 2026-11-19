@@ -399,6 +399,7 @@ export function generateFollowPatternQuestion(
     flashDurationMs,
     flashPauseMs,
     timeLimitMs,
-    guidanceTextAr
+    guidanceTextAr,
+    manualTimerStart: true
   };
 }

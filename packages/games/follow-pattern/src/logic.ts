@@ -48,6 +48,7 @@ export class FollowPatternLogic
   ability: Ability = 'memory';
   basePoints = 150;
   questionsPerStage = 1; // 1 sequence per stage
+  manualTimerStart = true;
 
   stageConfig(stage: number): StageConfig {
     let tier: Tier = 'warmup';

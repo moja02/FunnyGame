@@ -41,6 +41,15 @@ export const FollowPatternView: React.FC<
     setHintsAvailable(1);
   }
 
+  // Ensure intro card dismissal state matches current question
+  useEffect(() => {
+    if (!payload.introCardAr) {
+      setIntroDismissed(true);
+    } else {
+      setIntroDismissed(false);
+    }
+  }, [payload.introCardAr]);
+
   // Handle intro dismissal
   const handleDismissIntro = useCallback(() => {
     setIntroDismissed(true);

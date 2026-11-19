@@ -43,6 +43,7 @@ export interface FollowPatternQuestionPayload {
   timeLimitMs: number;
   introCardAr?: string;
   guidanceTextAr: string;
+  manualTimerStart?: boolean;
 }
 
 export interface FollowPatternAnswerInput {

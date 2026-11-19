@@ -430,7 +430,13 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     }
 
     const hasIntroCard = Boolean((q.payload as any)?.introCardAr);
-    if (!hasIntroCard) {
+    const hasManualTimer = Boolean(
+      (logic as any).manualTimerStart ||
+      (q.payload as any)?.manualTimerStart ||
+      gameId === 'follow-pattern' ||
+      gameId === 'follow_pattern'
+    );
+    if (!hasIntroCard && !hasManualTimer) {
       startTimer();
     }
   }, [module, startTimer]);
