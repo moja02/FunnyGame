@@ -310,7 +310,7 @@ export const MathBridgeView: React.FC<
             const hasAnswered = selectedChoice !== null;
             const isDisabled = disabledChoices.has(idx);
 
-            let btnBg = 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-white';
+            let btnBg = 'bg-slate-900 border-slate-800 text-white focus:outline-none';
             if (isDisabled) {
               btnBg = 'bg-slate-950/40 border-slate-900/40 text-slate-700 opacity-20 pointer-events-none';
             } else if (hasAnswered) {
@@ -330,10 +330,13 @@ export const MathBridgeView: React.FC<
 
             return (
               <button
-                key={idx}
-                onClick={() => handleSelect(idx, choiceVal)}
+                key={`q-${question.index}-${idx}`}
+                onClick={(e) => {
+                  e.currentTarget.blur();
+                  handleSelect(idx, choiceVal);
+                }}
                 disabled={locked || isAnsweredRef.current || !introDismissed || isDisabled}
-                className={`h-[62px] sm:h-[70px] min-h-[54px] rounded-2xl border-2 flex items-center justify-center transition-all duration-150 relative active:scale-95 cursor-pointer shadow-md select-none ${btnBg}`}
+                className={`h-[62px] sm:h-[70px] min-h-[54px] rounded-2xl border-2 flex items-center justify-center transition-all duration-150 relative active:scale-95 active:bg-slate-800 cursor-pointer shadow-md select-none focus:outline-none focus:ring-0 ${btnBg}`}
               >
                 {/* Keyboard digit hint (top-left pinned) */}
                 <span className="absolute top-1.5 left-2 text-[10px] sm:text-xs font-mono font-bold text-slate-400/80 px-1.5 py-0.5 rounded-md bg-black/30 border border-white/5 pointer-events-none">

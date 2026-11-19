@@ -372,7 +372,7 @@ export const CalcPressureView: React.FC<
             const isCorrectChoice = idx === payload.correctChoiceIndex;
             const hasAnswered = selectedChoice !== null;
 
-            let btnBg = 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-white';
+            let btnBg = 'bg-slate-900 border-slate-800 text-white focus:outline-none';
             if (hasAnswered) {
               if (isCorrectChoice) {
                 btnBg =
@@ -387,10 +387,13 @@ export const CalcPressureView: React.FC<
 
             return (
               <button
-                key={idx}
-                onClick={() => handleSelect(idx, choiceVal)}
+                key={`q-${question.index}-${idx}`}
+                onClick={(e) => {
+                  e.currentTarget.blur();
+                  handleSelect(idx, choiceVal);
+                }}
                 disabled={locked || isAnsweredRef.current || !introDismissed}
-                className={`w-full h-[50px] sm:h-[56px] min-h-[46px] rounded-2xl border-2 flex items-center justify-between px-5 transition-all duration-150 relative active:scale-95 cursor-pointer shadow-md ${btnBg}`}
+                className={`w-full h-[50px] sm:h-[56px] min-h-[46px] rounded-2xl border-2 flex items-center justify-between px-5 transition-all duration-150 relative active:scale-95 active:bg-slate-800 cursor-pointer shadow-md focus:outline-none focus:ring-0 ${btnBg}`}
               >
                 {/* Keyboard digit hint */}
                 <span className="text-xs font-mono font-bold text-slate-400/80 px-2 py-0.5 rounded-lg bg-black/25">
