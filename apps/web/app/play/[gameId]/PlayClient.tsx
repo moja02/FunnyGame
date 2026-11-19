@@ -415,6 +415,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
 
   // Start timer countdown
   const startTimer = useCallback(() => {
+    if (gameId === 'watch-and-judge' || gameId === 'watch_and_judge') {
+      return;
+    }
     const q = currentQuestionRef.current;
     if (!module || !q) return;
 
@@ -795,7 +798,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         <>
           <Hud hearts={hearts} stage={stage} score={score} isBoss={stageCfg.isBoss} />
           <div className="px-4 mt-1">
-            <TimerBar remainingMs={remainingMs} totalMs={timeLimitMs} />
+            {gameId !== 'watch-and-judge' && gameId !== 'watch_and_judge' && (
+              <TimerBar remainingMs={remainingMs} totalMs={timeLimitMs} />
+            )}
             <ComboMeter combo={combo} />
           </div>
         </>

@@ -13,12 +13,14 @@ import { sound, haptics } from '@funnygame/ui';
 
 export const WatchAndJudgeView: React.FC<
   GameViewProps<WatchAndJudgeQuestionPayload, WatchAndJudgeAnswerInput>
-> = ({ question, onAnswer, locked, onStartTimer }) => {
+> = ({ question, onAnswer, locked }) => {
   const { payload } = question;
 
   const [introDismissed, setIntroDismissed] = useState(!payload.introCardAr);
   const [currentRoundIdx, setCurrentRoundIdx] = useState(0);
   const [step, setStep] = useState<'scene_a' | 'transition' | 'scene_b' | 'feedback'>('scene_a');
+  const [sceneARemainingMs, setSceneARemainingMs] = useState(0);
+  const [decisionRemainingMs, setDecisionRemainingMs] = useState(0);
   const [roundOutcomes, setRoundOutcomes] = useState<('correct' | 'wrong' | 'pending')[]>([
     'pending',
     'pending',
@@ -26,7 +28,7 @@ export const WatchAndJudgeView: React.FC<
   ]);
   const [roundRecords, setRoundRecords] = useState<RoundAnswerRecord[]>([]);
 
-  // Feedback states
+  // Feedback visual states
   const [highlightedCorrectCells, setHighlightedCorrectCells] = useState<number[]>([]);
   const [highlightedWrongCell, setHighlightedWrongCell] = useState<number | null>(null);
   const [firstDoubleClickedCell, setFirstDoubleClickedCell] = useState<number | null>(null);
@@ -39,17 +41,31 @@ export const WatchAndJudgeView: React.FC<
   // Random color flash matrix for transition (stages 36-45)
   const [flashColors, setFlashColors] = useState<string[]>([]);
 
+  const animFrameRef = useRef<number | null>(null);
+  const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const decisionStartTimeRef = useRef<number>(0);
   const isRoundResolvedRef = useRef(false);
   const isStageEndedRef = useRef(false);
-  const currentStageRef = useRef(payload.stage);
-  const abortControllerRef = useRef(false);
+  const streakRef = useRef<number>(0);
+  const handleTimeoutRef = useRef<() => void>(() => {});
 
-  // Reset hint when stage advances
-  if (currentStageRef.current !== payload.stage) {
-    currentStageRef.current = payload.stage;
-    setHintsAvailable(1);
-  }
+  // Clean cancellation of all active timers
+  const cancelAllTimers = useCallback(() => {
+    if (animFrameRef.current !== null) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    if (transitionTimerRef.current !== null) {
+      clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+    if (feedbackTimerRef.current !== null) {
+      clearTimeout(feedbackTimerRef.current);
+      feedbackTimerRef.current = null;
+    }
+  }, []);
 
   // Synchronize intro card dismissal state
   useEffect(() => {
@@ -66,87 +82,25 @@ export const WatchAndJudgeView: React.FC<
     haptics.light();
   }, []);
 
-  const currentRound = payload.rounds[currentRoundIdx] || payload.rounds[0]!;
-
-  // 1. Run round lifecycle: Scene A -> Transition -> Scene B
+  // When stage or question advances, reset entire stage state cleanly
   useEffect(() => {
+    cancelAllTimers();
+    setCurrentRoundIdx(0);
+    setRoundOutcomes(['pending', 'pending', 'pending']);
+    setRoundRecords([]);
+    isStageEndedRef.current = false;
     isRoundResolvedRef.current = false;
-    abortControllerRef.current = false;
-    setStep('scene_a');
-    setHighlightedCorrectCells([]);
-    setHighlightedWrongCell(null);
-    setFirstDoubleClickedCell(null);
+    streakRef.current = 0;
+    setHintsAvailable(1);
     setHintMessage(null);
     setHighlightedQuadrant(null);
+    setFirstDoubleClickedCell(null);
+    setHighlightedCorrectCells([]);
+    setHighlightedWrongCell(null);
+    setStep('scene_a');
+  }, [question.index, question.stage, cancelAllTimers]);
 
-    if (!introDismissed) return;
-
-    let isCancelled = false;
-
-    const runRound = async () => {
-      // 1. Scene A: display for viewDurationMs
-      await new Promise((r) => setTimeout(r, currentRound.viewDurationMs));
-      if (isCancelled || abortControllerRef.current) return;
-
-      // 2. Transition
-      setStep('transition');
-      if (currentRound.transitionType === 'COLOR_FLASH') {
-        const colors = [
-          'bg-rose-500', 'bg-sky-500', 'bg-amber-500', 'bg-emerald-500',
-          'bg-purple-500', 'bg-pink-500', 'bg-cyan-500', 'bg-orange-500'
-        ];
-        const randomGrid = Array.from({ length: 25 }, () => colors[Math.floor(Math.random() * colors.length)]!);
-        setFlashColors(randomGrid);
-        await new Promise((r) => setTimeout(r, 400));
-      } else if (currentRound.transitionType === 'DISTRACTOR') {
-        await new Promise((r) => setTimeout(r, 800));
-      } else {
-        await new Promise((r) => setTimeout(r, 300));
-      }
-      if (isCancelled || abortControllerRef.current) return;
-
-      // 3. Scene B: Decision phase
-      setStep('scene_b');
-      decisionStartTimeRef.current = Date.now();
-      onStartTimer?.();
-      sound.tap();
-      haptics.light();
-    };
-
-    runRound();
-
-    return () => {
-      isCancelled = true;
-      abortControllerRef.current = true;
-    };
-  }, [
-    question.stage,
-    question.index,
-    currentRoundIdx,
-    introDismissed,
-    currentRound.viewDurationMs,
-    currentRound.transitionType,
-    onStartTimer
-  ]);
-
-  // Anti-cheat: Visibility change during Scene A or Transition
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && step !== 'scene_b' && !isStageEndedRef.current) {
-        isStageEndedRef.current = true;
-        abortControllerRef.current = true;
-        onAnswer({
-          rounds: [],
-          totalPoints: 0,
-          correctRoundsCount: 0,
-          isComplete: false
-        });
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [step, onAnswer]);
+  const currentRound = payload.rounds[currentRoundIdx] || payload.rounds[0]!;
 
   // Handle stage completion or progression after round feedback
   const proceedToNextRound = useCallback(
@@ -164,29 +118,167 @@ export const WatchAndJudgeView: React.FC<
       const isLastRound = currentRoundIdx === 2;
       const alreadyFailed = failCount >= 2;
 
-      if (isLastRound || alreadyFailed) {
-        // Stage concluded!
-        isStageEndedRef.current = true;
-        const passed = correctCount >= 2;
-        const totalPoints = nextRecords.reduce((sum, r) => sum + r.earnedPoints, 0);
+      const feedbackDelay = newOutcome === 'correct' ? 250 : 650;
 
-        setTimeout(() => {
+      feedbackTimerRef.current = setTimeout(() => {
+        feedbackTimerRef.current = null;
+        if (isLastRound || alreadyFailed) {
+          isStageEndedRef.current = true;
+          const passed = correctCount >= 2;
+          const totalPoints = nextRecords.reduce((sum, r) => sum + r.earnedPoints, 0);
+
           onAnswer({
             rounds: nextRecords,
             totalPoints,
             correctRoundsCount: correctCount,
             isComplete: passed
           });
-        }, 500);
-      } else {
-        // Advance to next round within the stage
-        setTimeout(() => {
+        } else {
           setCurrentRoundIdx((prev) => prev + 1);
-        }, 500);
-      }
+        }
+      }, feedbackDelay);
     },
     [currentRoundIdx, roundOutcomes, roundRecords, onAnswer]
   );
+
+  // Handle Round Decision Timeout
+  const handleRoundTimeout = useCallback(() => {
+    cancelAllTimers();
+    if (isRoundResolvedRef.current || isStageEndedRef.current) return;
+
+    isRoundResolvedRef.current = true;
+    setStep('feedback');
+    sound.wrong();
+    haptics.error();
+
+    // Reset streak on timeout
+    streakRef.current = 0;
+
+    // Highlight the real changed cell in alert amber
+    setHighlightedCorrectCells(currentRound.validTargetIndices);
+
+    proceedToNextRound('wrong', {
+      roundIndex: currentRoundIdx,
+      clickedCellIndex: null,
+      clickedNoChange: false,
+      secondClickedCellIndex: null,
+      decisionMs: currentRound.decisionTimeLimitMs,
+      isCorrect: false,
+      earnedPoints: 0
+    });
+  }, [cancelAllTimers, currentRound, currentRoundIdx, proceedToNextRound]);
+
+  // Keep ref up to date
+  useEffect(() => {
+    handleTimeoutRef.current = handleRoundTimeout;
+  }, [handleRoundTimeout]);
+
+  // Round execution lifecycle: Scene A -> Transition -> Scene B
+  useEffect(() => {
+    if (!introDismissed || isStageEndedRef.current) return;
+
+    cancelAllTimers();
+    isRoundResolvedRef.current = false;
+    setStep('scene_a');
+    setHighlightedCorrectCells([]);
+    setHighlightedWrongCell(null);
+    setFirstDoubleClickedCell(null);
+    setHintMessage(null);
+    setHighlightedQuadrant(null);
+
+    const roundDef = payload.rounds[currentRoundIdx] || payload.rounds[0]!;
+    const viewDuration = roundDef.viewDurationMs;
+    const decisionDuration = roundDef.decisionTimeLimitMs;
+
+    setSceneARemainingMs(viewDuration);
+    setDecisionRemainingMs(decisionDuration);
+
+    // 1. Scene A: Memorization phase with blue progress countdown
+    const sceneAStart = Date.now();
+    const tickSceneA = () => {
+      const elapsed = Date.now() - sceneAStart;
+      const left = Math.max(0, viewDuration - elapsed);
+      setSceneARemainingMs(left);
+
+      if (left <= 0) {
+        animFrameRef.current = null;
+        setStep('transition');
+
+        let transDuration = 300;
+        if (roundDef.transitionType === 'COLOR_FLASH') {
+          transDuration = 400;
+          const colors = [
+            'bg-rose-500', 'bg-sky-500', 'bg-amber-500', 'bg-emerald-500',
+            'bg-purple-500', 'bg-pink-500', 'bg-cyan-500', 'bg-orange-500'
+          ];
+          setFlashColors(
+            Array.from({ length: 25 }, () => colors[Math.floor(Math.random() * colors.length)]!)
+          );
+        } else if (roundDef.transitionType === 'DISTRACTOR') {
+          transDuration = 800;
+        }
+
+        transitionTimerRef.current = setTimeout(() => {
+          transitionTimerRef.current = null;
+          setStep('scene_b');
+          sound.tap();
+          haptics.light();
+          decisionStartTimeRef.current = Date.now();
+
+          // 2. Scene B: Decision phase countdown
+          const tickSceneB = () => {
+            if (isRoundResolvedRef.current || isStageEndedRef.current) return;
+            const decElapsed = Date.now() - decisionStartTimeRef.current;
+            const decLeft = Math.max(0, decisionDuration - decElapsed);
+            setDecisionRemainingMs(decLeft);
+
+            if (decLeft <= 0) {
+              animFrameRef.current = null;
+              handleTimeoutRef.current();
+            } else {
+              animFrameRef.current = requestAnimationFrame(tickSceneB);
+            }
+          };
+
+          animFrameRef.current = requestAnimationFrame(tickSceneB);
+        }, transDuration);
+      } else {
+        animFrameRef.current = requestAnimationFrame(tickSceneA);
+      }
+    };
+
+    animFrameRef.current = requestAnimationFrame(tickSceneA);
+
+    return () => {
+      cancelAllTimers();
+    };
+  }, [
+    question.stage,
+    question.index,
+    currentRoundIdx,
+    introDismissed,
+    payload.rounds,
+    cancelAllTimers
+  ]);
+
+  // Anti-cheat: Visibility change during Scene A, Transition, or Scene B
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && !isStageEndedRef.current) {
+        isStageEndedRef.current = true;
+        cancelAllTimers();
+        onAnswer({
+          rounds: [],
+          totalPoints: 0,
+          correctRoundsCount: 0,
+          isComplete: false
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [cancelAllTimers, onAnswer]);
 
   // Handle Decision (Cell Click or "No Change" Click)
   const handleDecision = useCallback(
@@ -215,6 +307,7 @@ export const WatchAndJudgeView: React.FC<
         }
       }
 
+      cancelAllTimers();
       isRoundResolvedRef.current = true;
       setStep('feedback');
 
@@ -234,7 +327,7 @@ export const WatchAndJudgeView: React.FC<
           isCorrect = true;
         }
       } else {
-        // Single target or swap
+        // Single target or swap (touching either swapped cell is correct)
         if (clickedIdx !== null && currentRound.validTargetIndices.includes(clickedIdx)) {
           isCorrect = true;
         }
@@ -243,6 +336,8 @@ export const WatchAndJudgeView: React.FC<
       if (isCorrect) {
         sound.correct();
         haptics.light();
+        streakRef.current += 1;
+
         if (clickedIdx !== null) {
           setHighlightedCorrectCells(
             currentRound.isDoubleChange
@@ -259,7 +354,7 @@ export const WatchAndJudgeView: React.FC<
           isMinorOrDouble,
           remainingMs,
           currentRound.decisionTimeLimitMs,
-          1 // Combo multiplier handled in round score
+          streakRef.current
         );
 
         proceedToNextRound('correct', {
@@ -274,10 +369,12 @@ export const WatchAndJudgeView: React.FC<
       } else {
         sound.wrong();
         haptics.error();
+        streakRef.current = 0;
+
         if (clickedIdx !== null) {
           setHighlightedWrongCell(clickedIdx);
         }
-        // Highlight real correct change targets in red/amber
+        // Highlight real correct change targets in alert amber/red
         setHighlightedCorrectCells(currentRound.validTargetIndices);
 
         proceedToNextRound('wrong', {
@@ -296,6 +393,7 @@ export const WatchAndJudgeView: React.FC<
       locked,
       currentRound,
       firstDoubleClickedCell,
+      cancelAllTimers,
       payload.stage,
       currentRoundIdx,
       proceedToNextRound
@@ -334,7 +432,7 @@ export const WatchAndJudgeView: React.FC<
     }
   }, [hintsAvailable, step, locked, currentRound]);
 
-  // Keyboard support: Space/0 for No Change, H for Hint
+  // Keyboard support: Space/0 for No Change, H for Hint, Enter for Intro
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!introDismissed) {
@@ -349,7 +447,7 @@ export const WatchAndJudgeView: React.FC<
         e.preventDefault();
         handleUseHint();
       } else if (e.key === ' ' || e.key === '0') {
-        if (payload.hasNoChangeButton && step === 'scene_b') {
+        if (payload.hasNoChangeButton && step === 'scene_b' && !isRoundResolvedRef.current) {
           e.preventDefault();
           handleDecision(null, true);
         }
@@ -384,7 +482,7 @@ export const WatchAndJudgeView: React.FC<
             </p>
             <button
               onClick={handleDismissIntro}
-              className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 active:scale-95 text-white font-black rounded-xl shadow-lg transition-transform"
+              className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 active:scale-95 text-white font-black rounded-xl shadow-lg transition-transform cursor-pointer"
             >
               فهمت، ابدأ! 🚀
             </button>
@@ -395,9 +493,43 @@ export const WatchAndJudgeView: React.FC<
         </div>
       )}
 
+      {/* Dual-Phase Timer Bar (Blue for Scene A, Multi-color for Scene B) */}
+      <div className="w-full max-w-[420px] px-1 pt-1 pb-0.5">
+        <div className="relative w-full h-2.5 bg-slate-900 rounded-full border border-slate-800 overflow-hidden shadow-inner">
+          {step === 'scene_a' && (
+            <div
+              className="h-full bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-500 rounded-full transition-all duration-75 shadow-[0_0_10px_rgba(56,189,248,0.7)]"
+              style={{
+                width: `${Math.max(0, Math.min(100, (sceneARemainingMs / currentRound.viewDurationMs) * 100))}%`
+              }}
+            />
+          )}
+          {step === 'transition' && (
+            <div className="h-full w-full bg-purple-600/40 animate-pulse" />
+          )}
+          {step === 'scene_b' && (
+            <div
+              className={`h-full rounded-full transition-all duration-75 ${
+                decisionRemainingMs / currentRound.decisionTimeLimitMs > 0.5
+                  ? 'bg-gradient-to-r from-emerald-400 to-teal-500 shadow-[0_0_10px_rgba(52,211,153,0.6)]'
+                  : decisionRemainingMs / currentRound.decisionTimeLimitMs > 0.25
+                  ? 'bg-gradient-to-r from-amber-400 to-yellow-500 shadow-[0_0_10px_rgba(251,191,36,0.6)]'
+                  : 'bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_0_12px_rgba(244,63,94,0.8)] animate-pulse'
+              }`}
+              style={{
+                width: `${Math.max(0, Math.min(100, (decisionRemainingMs / currentRound.decisionTimeLimitMs) * 100))}%`
+              }}
+            />
+          )}
+          {step === 'feedback' && (
+            <div className="h-full w-full bg-slate-800/40" />
+          )}
+        </div>
+      </div>
+
       {/* Top Header & Rounds Indicator */}
-      <div className="w-full flex flex-col gap-1 pt-1">
-        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 shadow-md">
+      <div className="w-full flex flex-col gap-1 pt-0.5">
+        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 shadow-md">
           {/* Rounds Progress Pips (✓ ✗ ○) */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-400">الجولات:</span>
@@ -438,7 +570,7 @@ export const WatchAndJudgeView: React.FC<
             }
             className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition-all ${
               hintsAvailable > 0 && step === 'scene_b'
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 active:scale-95 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 active:scale-95 shadow-[0_0_10px_rgba(245,158,11,0.2)] cursor-pointer'
                 : 'bg-slate-800/40 text-slate-600 border-slate-800 cursor-not-allowed opacity-50'
             }`}
           >
@@ -446,23 +578,28 @@ export const WatchAndJudgeView: React.FC<
           </button>
         </div>
 
-        {/* Status Prompt & Hint Notification */}
+        {/* Status Prompt & Live Time Notification */}
         <div className="flex items-center justify-between px-2 text-xs">
           <div className="font-bold">
             {step === 'scene_a' ? (
-              <span className="inline-flex items-center gap-1 text-sky-400 animate-pulse">
+              <span className="inline-flex items-center gap-1.5 text-sky-400 animate-pulse">
                 <span>👀</span>
-                <span>احفظ المشهد الأول...</span>
+                <span>احفظ المشهد الأول... ({(sceneARemainingMs / 1000).toFixed(1)} ث)</span>
               </span>
             ) : step === 'transition' ? (
-              <span className="inline-flex items-center gap-1 text-purple-400">
+              <span className="inline-flex items-center gap-1.5 text-purple-400">
                 <span>⏳</span>
                 <span>ركّز في الصورة الذهنية...</span>
               </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-emerald-400">
+            ) : step === 'scene_b' ? (
+              <span className="inline-flex items-center gap-1.5 text-emerald-400">
                 <span>🔍</span>
-                <span>شنو تغيّر؟ اضغط على الخلية المتغيرة</span>
+                <span>شنو تغيّر؟ اضغط على الخلية ({(decisionRemainingMs / 1000).toFixed(1)} ث)</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-slate-300">
+                <span>✨</span>
+                <span>النتيجة...</span>
               </span>
             )}
           </div>
@@ -523,8 +660,10 @@ export const WatchAndJudgeView: React.FC<
                   handleDecision(idx, false);
                 }}
                 className={`relative flex items-center justify-center rounded-xl border-2 transition-all duration-150 select-none touch-manipulation ${
-                  isHighlightedCorrect
-                    ? 'bg-emerald-950/80 border-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.8)] scale-105'
+                  isHighlightedCorrect && !isHighlightedWrong
+                    ? step === 'feedback' && highlightedWrongCell !== null
+                      ? 'bg-amber-950/90 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.9)] scale-105 animate-pulse'
+                      : 'bg-emerald-950/80 border-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.8)] scale-105'
                     : isHighlightedWrong
                     ? 'bg-rose-950/80 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.8)] animate-shake'
                     : isFirstDouble
@@ -547,9 +686,15 @@ export const WatchAndJudgeView: React.FC<
                   </span>
                 )}
 
-                {/* Vanish Target Indicator on feedback if applicable */}
+                {/* Vanish Target Indicator on feedback */}
                 {!item && isHighlightedCorrect && (
-                  <span className="text-emerald-400 text-xs font-black">✓ اختفى</span>
+                  <span
+                    className={`text-xs font-black ${
+                      highlightedWrongCell !== null ? 'text-amber-300' : 'text-emerald-400'
+                    }`}
+                  >
+                    {highlightedWrongCell !== null ? 'اختفى هنا ⚠️' : '✓ اختفى'}
+                  </span>
                 )}
               </button>
             );
@@ -561,7 +706,7 @@ export const WatchAndJudgeView: React.FC<
       {payload.hasNoChangeButton && (
         <div className="w-full max-w-[420px] px-1 pb-1">
           <button
-            onClick={(e) => {
+            onPointerDown={(e) => {
               (e.currentTarget as HTMLElement)?.blur();
               handleDecision(null, true);
             }}
