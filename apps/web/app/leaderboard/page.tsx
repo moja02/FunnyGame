@@ -13,6 +13,14 @@ const readyGames = [
     color: 'from-amber-500/20 to-yellow-600/30 border-amber-500/40 text-amber-300'
   },
   {
+    id: 'math-bridge',
+    title: 'الجسر الحسابي',
+    ability: 'الحساب والبديهة 🔢',
+    icon: '🌉',
+    description: 'معادلات رياضية ناقصة! اختر العملية أو الرقم المجهول وأكمل المعادلة قبل نفاد الوقت.',
+    color: 'from-indigo-500/20 to-blue-600/30 border-indigo-500/40 text-indigo-300'
+  },
+  {
     id: 'dont-tap',
     title: 'لا تضغط!',
     ability: 'السرعة والتركيز ⚡',

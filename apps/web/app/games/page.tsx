@@ -80,6 +80,16 @@ const allGames: GameItem[] = [
     stages: '70+ مرحلة'
   },
   {
+    id: 'math-bridge',
+    title: 'الجسر الحسابي',
+    ability: 'math',
+    abilityName: 'الحساب والبديهة',
+    icon: '🌉',
+    description: 'معادلات رياضية ناقصة! اختر العملية أو الرقم المجهول وأكمل المعادلة قبل نفاد الوقت.',
+    status: 'ready',
+    stages: '70+ مرحلة'
+  },
+  {
     id: 'speed-math',
     title: 'حساب سريع',
     ability: 'math',

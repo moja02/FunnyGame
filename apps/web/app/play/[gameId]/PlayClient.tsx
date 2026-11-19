@@ -28,6 +28,7 @@ import {
 import '@funnygame/game-calc-pressure';
 import '@funnygame/game-color-trap';
 import '@funnygame/game-dont-tap';
+import '@funnygame/game-math-bridge';
 import '@funnygame/game-odd-one-out';
 
 const GAME_METADATA: Record<
@@ -40,6 +41,30 @@ const GAME_METADATA: Record<
     rules: string[];
   }
 > = {
+  'math-bridge': {
+    title: 'الجسر الحسابي',
+    abilityName: 'الحساب والبديهة 🔢',
+    icon: '🌉',
+    abilityBadgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+    rules: [
+      'أكمل طرفي المعادلة باختيار العملية أو الرقم المجهول الصحيح.',
+      'عندك 3 قلوب بس، كل غلطة أو نفاد وقت يطير قلب.',
+      'تلميح (💡 1) متاح في كل مرحلة لحذف خيارين خاطئين.',
+      'تتدرج الصعوبة من خانة واحدة لأقواس وأسس وجذور ومعادلات مترابطة!'
+    ]
+  },
+  'math_bridge': {
+    title: 'الجسر الحسابي',
+    abilityName: 'الحساب والبديهة 🔢',
+    icon: '🌉',
+    abilityBadgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+    rules: [
+      'أكمل طرفي المعادلة باختيار العملية أو الرقم المجهول الصحيح.',
+      'عندك 3 قلوب بس، كل غلطة أو نفاد وقت يطير قلب.',
+      'تلميح (💡 1) متاح في كل مرحلة لحذف خيارين خاطئين.',
+      'تتدرج الصعوبة من خانة واحدة لأقواس وأسس وجذور ومعادلات مترابطة!'
+    ]
+  },
   'calc-pressure': {
     title: 'حاسبة تحت الضغط',
     abilityName: 'الحساب والبديهة 🔢',
