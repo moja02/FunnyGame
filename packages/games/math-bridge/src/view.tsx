@@ -201,7 +201,7 @@ export const MathBridgeView: React.FC<
             return (
               <span
                 key={idx}
-                className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-xl border-2 font-mono text-xl sm:text-2xl font-black shadow-inner min-w-[42px] ${slotBg}`}
+                className={`inline-flex items-center justify-center px-3 py-0.5 rounded-xl border-2 font-mono text-2xl sm:text-3xl font-black shadow-inner min-w-[48px] ${slotBg}`}
               >
                 {slotContent}
               </span>
@@ -325,36 +325,47 @@ export const MathBridgeView: React.FC<
               }
             }
 
+            const isShort = choiceVal.length <= 2;
+            const isMedium = choiceVal.length <= 6;
+
             return (
               <button
                 key={idx}
                 onClick={() => handleSelect(idx, choiceVal)}
                 disabled={locked || isAnsweredRef.current || !introDismissed || isDisabled}
-                className={`h-[54px] sm:h-[60px] min-h-[48px] rounded-2xl border-2 flex items-center justify-between px-4 sm:px-5 transition-all duration-150 relative active:scale-95 cursor-pointer shadow-md ${btnBg}`}
+                className={`h-[62px] sm:h-[70px] min-h-[54px] rounded-2xl border-2 flex items-center justify-center transition-all duration-150 relative active:scale-95 cursor-pointer shadow-md select-none ${btnBg}`}
               >
-                {/* Keyboard digit hint */}
-                <span className="text-xs font-mono font-bold text-slate-400/80 px-2 py-0.5 rounded-lg bg-black/25">
+                {/* Keyboard digit hint (top-left pinned) */}
+                <span className="absolute top-1.5 left-2 text-[10px] sm:text-xs font-mono font-bold text-slate-400/80 px-1.5 py-0.5 rounded-md bg-black/30 border border-white/5 pointer-events-none">
                   {idx + 1}
                 </span>
 
-                {/* Choice Text (strictly LTR) */}
+                {/* Choice Text (strictly LTR, large and distinct) */}
                 <span
                   dir="ltr"
                   style={{ unicodeBidi: 'isolate' }}
-                  className="font-mono text-xl sm:text-2xl font-black tracking-wider text-center flex-1"
+                  className={`font-black tracking-normal text-center select-none ${
+                    isShort
+                      ? 'text-3xl sm:text-4xl'
+                      : isMedium
+                      ? 'text-2xl sm:text-3xl font-mono'
+                      : 'text-xl sm:text-2xl font-mono'
+                  }`}
                 >
                   {choiceVal}
                 </span>
 
-                {/* Feedback icon */}
-                <div className="w-5 flex items-center justify-center">
-                  {hasAnswered && isCorrectChoice && (
-                    <span className="text-lg animate-scaleUp text-white">✓</span>
-                  )}
-                  {hasAnswered && isSelected && !isCorrectChoice && (
-                    <span className="text-lg animate-scaleUp text-white">✗</span>
-                  )}
-                </div>
+                {/* Feedback icon (top-right pinned) */}
+                {hasAnswered && (
+                  <div className="absolute top-2 right-2.5 flex items-center justify-center pointer-events-none">
+                    {isCorrectChoice && (
+                      <span className="text-base sm:text-lg animate-scaleUp text-white font-black">✓</span>
+                    )}
+                    {isSelected && !isCorrectChoice && (
+                      <span className="text-base sm:text-lg animate-scaleUp text-white font-black">✗</span>
+                    )}
+                  </div>
+                )}
               </button>
             );
           })}
