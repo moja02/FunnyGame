@@ -50,7 +50,15 @@ export const movingMazeContent = {
 
 let lastTauntIndex = -1;
 
-export function getTaunt(score: number, stage: number): string {
+export function getTaunt(
+  scoreOrObj: number | { score?: number; stage?: number },
+  stageArg?: number
+): string {
+  const score =
+    typeof scoreOrObj === 'number' ? scoreOrObj : scoreOrObj?.score ?? 0;
+  const stage =
+    typeof scoreOrObj === 'number' ? stageArg ?? 1 : scoreOrObj?.stage ?? 1;
+
   let pool = TAUNTS_LOW;
   if (stage >= 26) {
     pool = TAUNTS_HIGH;
@@ -66,6 +74,6 @@ export function getTaunt(score: number, stage: number): string {
 
   const template = pool[chosenIndex]!;
   return template
-    .replace('{score}', score.toLocaleString('en-US'))
-    .replace('{stage}', stage.toString());
+    .replace('{score}', (score ?? 0).toLocaleString('en-US'))
+    .replace('{stage}', (stage ?? 1).toString());
 }

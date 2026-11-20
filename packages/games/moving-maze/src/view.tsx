@@ -26,6 +26,7 @@ export const MovingMazeView: React.FC<
   const [dynamicWallCycle, setDynamicWallCycle] = useState<number>(0);
   const [shiftProgressRatio, setShiftProgressRatio] = useState<number>(0); // 0 to 1
   const [isBumping, setIsBumping] = useState<boolean>(false);
+  const [bumpedWallDir, setBumpedWallDir] = useState<{ r: number; c: number; dir: string } | null>(null);
   const [hintPath, setHintPath] = useState<GridCoord[] | null>(null);
   const [hintsAvailable, setHintsAvailable] = useState<number>(1);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
@@ -45,6 +46,7 @@ export const MovingMazeView: React.FC<
   const isResolvedRef = useRef<boolean>(false);
   const startTimeRef = useRef<number>(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const lastTouchStepTimeRef = useRef<number>(0);
   const comboStreakRef = useRef<number>(0);
   const noticeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -82,6 +84,7 @@ export const MovingMazeView: React.FC<
     setDynamicWallCycle(0);
     setShiftProgressRatio(0);
     setIsBumping(false);
+    setBumpedWallDir(null);
     setHintPath(null);
     setHintsAvailable(1);
     setStatusNotice(null);
@@ -114,6 +117,9 @@ export const MovingMazeView: React.FC<
         isResolvedRef.current = true;
         sound.wrong();
         haptics.error();
+        comboStreakRef.current = 0;
+        showNotice('انتهى الوقت! حاول مجدداً ⏱️');
+
         onAnswer({
           isSuccess: false,
           movesUsed,
@@ -131,12 +137,12 @@ export const MovingMazeView: React.FC<
     timerAnimFrameRef.current = requestAnimationFrame(tickTimer);
 
     return () => {
-      if (timerAnimFrameRef.current !== null) {
+      if (timerAnimFrameRef.current) {
         cancelAnimationFrame(timerAnimFrameRef.current);
         timerAnimFrameRef.current = null;
       }
     };
-  }, [introDismissed, payload.timeLimitMs, movesUsed, collectedKeyIds.length, onAnswer]);
+  }, [introDismissed, payload.timeLimitMs, movesUsed, collectedKeyIds.length, showNotice, onAnswer]);
 
   // Dynamic Wall Shift Cycle Loop
   useEffect(() => {
@@ -157,13 +163,13 @@ export const MovingMazeView: React.FC<
         setShiftProgressRatio(0);
         setDynamicWallCycle((c) => c + 1);
 
-        // Toggle dynamic walls with solvability safeguard
+        // Toggle dynamic walls
         setActiveDynamicWalls((prev) => {
           const next = new Map(prev);
           payload.dynamicWalls.forEach((dw) => {
             const key = `${dw.type}-${dw.r}-${dw.c}`;
-            const current = next.get(key) ?? true;
-            next.set(key, !current);
+            const currentState = next.get(key) ?? !dw.isOpenInitially;
+            next.set(key, !currentState);
           });
           return next;
         });
@@ -185,33 +191,38 @@ export const MovingMazeView: React.FC<
   }, [introDismissed, payload.wallShiftIntervalSec, payload.dynamicWalls, payload.hasSilentShift]);
 
   // Check if a wall exists between two adjacent cells
-  const isWallBetween = useCallback(
-    (r1: number, c1: number, r2: number, c2: number): boolean => {
+  const getWallInfo = useCallback(
+    (r1: number, c1: number, r2: number, c2: number): { hasWall: boolean; isDynamic: boolean } => {
       // Horizontal wall between (r, c) and (r+1, c)
       if (r1 !== r2 && c1 === c2) {
         const minR = Math.min(r1, r2);
-        // Base wall
-        const baseWall = payload.hWalls[minR]?.[c1] ?? true;
-        // Check dynamic wall override
+        const isDynamic = payload.dynamicWalls.some((dw) => dw.type === 'H' && dw.r === minR && dw.c === c1);
         const dynKey = `H-${minR}-${c1}`;
-        if (activeDynamicWalls.has(dynKey)) {
-          return activeDynamicWalls.get(dynKey)!;
-        }
-        return baseWall;
+        const hasWall = activeDynamicWalls.has(dynKey)
+          ? activeDynamicWalls.get(dynKey)!
+          : (payload.hWalls[minR]?.[c1] ?? true);
+        return { hasWall, isDynamic };
       }
       // Vertical wall between (r, c) and (r, c+1)
       if (r1 === r2 && c1 !== c2) {
         const minC = Math.min(c1, c2);
-        const baseWall = payload.vWalls[r1]?.[minC] ?? true;
+        const isDynamic = payload.dynamicWalls.some((dw) => dw.type === 'V' && dw.r === r1 && dw.c === minC);
         const dynKey = `V-${r1}-${minC}`;
-        if (activeDynamicWalls.has(dynKey)) {
-          return activeDynamicWalls.get(dynKey)!;
-        }
-        return baseWall;
+        const hasWall = activeDynamicWalls.has(dynKey)
+          ? activeDynamicWalls.get(dynKey)!
+          : (payload.vWalls[r1]?.[minC] ?? true);
+        return { hasWall, isDynamic };
       }
-      return true;
+      return { hasWall: true, isDynamic: false };
     },
-    [payload.hWalls, payload.vWalls, activeDynamicWalls]
+    [payload.hWalls, payload.vWalls, payload.dynamicWalls, activeDynamicWalls]
+  );
+
+  const isWallBetween = useCallback(
+    (r1: number, c1: number, r2: number, c2: number): boolean => {
+      return getWallInfo(r1, c1, r2, c2).hasWall;
+    },
+    [getWallInfo]
   );
 
   // Check if target move direction is valid
@@ -250,7 +261,12 @@ export const MovingMazeView: React.FC<
       if (!nextCoord) {
         // Wall bump!
         setIsBumping(true);
-        setTimeout(() => setIsBumping(false), 120);
+        setBumpedWallDir({ r: playerPos.r, c: playerPos.c, dir });
+        setTimeout(() => {
+          setIsBumping(false);
+          setBumpedWallDir(null);
+        }, 150);
+        sound.tap();
         haptics.light();
         return;
       }
@@ -298,25 +314,33 @@ export const MovingMazeView: React.FC<
             showNotice(`أحسنت! اجمع المفتاح ${nextNeededKeyId + 1} 🔑`);
           }
         } else if (!collectedKeyIds.includes(keyOnCell.id)) {
-          showNotice(`المفتاح مقفل! اجمع المفتاح ${nextNeededKeyId} أولاً 🔒`);
+          // Tried collecting out of order!
+          sound.wrong();
+          haptics.error();
+          showNotice(`لازم تجمع المفتاح ${nextNeededKeyId} أولاً! 🔒`);
         }
       }
 
       // 3. Check Exit Gate
-      const isExit = nextCoord.r === payload.exitPos.r && nextCoord.c === payload.exitPos.c;
-      if (isExit) {
-        const allKeysCollected =
-          payload.keys.length === 0 || updatedKeys.length === payload.keys.length;
+      const isAtExit =
+        nextCoord.r === payload.exitPos.r && nextCoord.c === payload.exitPos.c;
 
-        if (!allKeysCollected) {
-          showNotice('البوابة مقفلة! يجب جمع كل المفاتيح أولاً 🔑🔒');
+      if (isAtExit) {
+        const hasAllKeys =
+          payload.keys.length === 0 ||
+          updatedKeys.length === payload.keys.length;
+
+        if (!hasAllKeys) {
+          sound.wrong();
+          haptics.error();
+          showNotice('البوابة مقفلة! اجمع المفاتيح أولاً 🔑');
           return;
         }
 
-        // MAZE SOLVED! Success!
+        // SUCCESS! Stage Solved!
         isResolvedRef.current = true;
         setIsSuccessFeedback(true);
-        sound.levelUp();
+        sound.correct();
         haptics.success();
         comboStreakRef.current += 1;
 
@@ -362,6 +386,7 @@ export const MovingMazeView: React.FC<
             totalPoints: 0
           });
         }, 400);
+        return;
       }
     },
     [
@@ -379,7 +404,7 @@ export const MovingMazeView: React.FC<
     ]
   );
 
-  // Continuous Swipe / Drag Handler for mobile
+  // Controlled Touch / Swipe Handler for mobile (prevents rapid burning of moves)
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
     if (!touch) return;
@@ -393,16 +418,19 @@ export const MovingMazeView: React.FC<
 
     const dx = touch.clientX - touchStartRef.current.x;
     const dy = touch.clientY - touchStartRef.current.y;
-    const threshold = 22;
+    const threshold = 24;
+    const now = Date.now();
 
     if (Math.abs(dx) >= threshold || Math.abs(dy) >= threshold) {
-      if (Math.abs(dx) > Math.abs(dy)) {
-        movePlayer(dx > 0 ? 'right' : 'left');
-      } else {
-        movePlayer(dy > 0 ? 'down' : 'up');
+      if (now - lastTouchStepTimeRef.current >= 180) {
+        if (Math.abs(dx) > Math.abs(dy)) {
+          movePlayer(dx > 0 ? 'right' : 'left');
+        } else {
+          movePlayer(dy > 0 ? 'down' : 'up');
+        }
+        lastTouchStepTimeRef.current = now;
+        touchStartRef.current = { x: touch.clientX, y: touch.clientY };
       }
-      // Reset origin to current touch position for smooth continuous gesture
-      touchStartRef.current = { x: touch.clientX, y: touch.clientY };
     }
   };
 
@@ -481,19 +509,23 @@ export const MovingMazeView: React.FC<
     hintsAvailable,
     introDismissed,
     collectedKeyIds,
-    payload,
+    payload.keys,
+    payload.exitPos,
+    payload.hWalls,
+    payload.vWalls,
+    activeDynamicWalls,
     playerPos,
-    n,
-    activeDynamicWalls
+    n
   ]);
 
-  // Fog of war visibility check
+  // Fog of War (Darkness) calculation: determines if cell is visible
   const isCellVisible = useCallback(
     (r: number, c: number): boolean => {
       if (!payload.hasFogOfWar) return true;
-      const dr = Math.abs(r - playerPos.r);
-      const dc = Math.abs(c - playerPos.c);
-      return Math.max(dr, dc) <= payload.visionRadius;
+      const dr = Math.abs(playerPos.r - r);
+      const dc = Math.abs(playerPos.c - c);
+      const dist = Math.max(dr, dc);
+      return dist <= payload.visionRadius;
     },
     [payload.hasFogOfWar, payload.visionRadius, playerPos]
   );
@@ -506,19 +538,33 @@ export const MovingMazeView: React.FC<
       {/* Intro Modal */}
       {!introDismissed && payload.introCardAr && (
         <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md rounded-2xl animate-fade-in">
-          <div className="flex flex-col items-center text-center p-6 bg-slate-900 border border-blue-500/40 rounded-2xl shadow-2xl max-w-xs w-full">
-            <span className="text-4xl mb-3">🧭</span>
+          <div className="flex flex-col items-center text-center p-5 bg-slate-900 border border-blue-500/40 rounded-2xl shadow-2xl max-w-xs w-full">
+            <span className="text-4xl mb-2">🧭</span>
             <h3 className="text-xl font-bold text-blue-300 mb-2">متاهة تتحرك</h3>
-            <p className="text-sm text-slate-200 mb-5 leading-relaxed">
+            <p className="text-xs text-slate-200 mb-3 leading-relaxed">
               {payload.introCardAr}
             </p>
+            <div className="text-[11px] text-slate-300 bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60 mb-4 leading-relaxed text-right w-full space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">🔵</span>
+                <span className="font-bold text-white">أنت النقطة المضيئة</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">🚪</span>
+                <span className="font-bold text-emerald-400">هدفك: الوصول لباب المخرج</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">🎮</span>
+                <span>تحرك بأزرار الأسهم أو السحب أو الكيبورد</span>
+              </div>
+            </div>
             <button
               onClick={handleDismissIntro}
-              className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black rounded-xl shadow-lg transition-transform cursor-pointer"
+              className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black rounded-xl shadow-lg transition-transform cursor-pointer"
             >
               فهمت، ابدأ! 🚀
             </button>
-            <span className="text-xs text-slate-400 mt-2">
+            <span className="text-[11px] text-slate-400 mt-2">
               أو اضغط مسافة (Space)
             </span>
           </div>
@@ -613,15 +659,16 @@ export const MovingMazeView: React.FC<
         </div>
       </div>
 
-      {/* Main Maze Canvas Container */}
+      {/* Main Maze Canvas Container - Explicit dir="ltr" to prevent horizontal flipping */}
       <div
         className="w-full flex items-center justify-center my-auto py-1 touch-none"
+        dir="ltr"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         <div
-          className={`relative w-full max-w-[420px] aspect-square p-1.5 bg-[#0e1117] rounded-2xl border-2 transition-all duration-200 overflow-hidden shadow-2xl ${
+          className={`relative w-full max-w-[340px] sm:max-w-[380px] aspect-square p-1.5 bg-[#0e1117] rounded-2xl border-2 transition-all duration-200 overflow-hidden shadow-2xl ${
             isSuccessFeedback
               ? 'border-emerald-500 shadow-[0_0_25px_rgba(16,185,129,0.5)]'
               : 'border-slate-800'
@@ -644,24 +691,26 @@ export const MovingMazeView: React.FC<
             const keyItem = payload.keys.find((k) => k.r === r && k.c === c);
             const isKeyCollected = keyItem ? collectedKeyIds.includes(keyItem.id) : false;
             const isNextKey = keyItem?.id === collectedKeyIds.length + 1;
-
             const isHint = hintPath?.some((pt) => pt.r === r && pt.c === c);
 
-            // Wall checks for this cell
-            const hasWallTop = r === 0 || isWallBetween(r, c, r - 1, c);
-            const hasWallBottom = r === n - 1 || isWallBetween(r, c, r + 1, c);
-            const hasWallLeft = c === 0 || isWallBetween(r, c, r, c - 1);
-            const hasWallRight = c === n - 1 || isWallBetween(r, c, r, c + 1);
+            // Wall inspection for each edge of this cell
+            const topWall = r === 0 ? { hasWall: true, isDynamic: false } : getWallInfo(r, c, r - 1, c);
+            const bottomWall = r === n - 1 ? { hasWall: true, isDynamic: false } : getWallInfo(r, c, r + 1, c);
+            const leftWall = c === 0 ? { hasWall: true, isDynamic: false } : getWallInfo(r, c, r, c - 1);
+            const rightWall = c === n - 1 ? { hasWall: true, isDynamic: false } : getWallInfo(r, c, r, c + 1);
 
-            // Is any wall adjacent to this cell a pulsing dynamic wall?
-            const isPulsingWall =
-              !payload.hasSilentShift &&
-              shiftProgressRatio >= 0.75 &&
-              payload.dynamicWalls.some(
-                (dw) =>
-                  (dw.type === 'H' && ((dw.r === r - 1 && dw.c === c) || (dw.r === r && dw.c === c))) ||
-                  (dw.type === 'V' && ((dw.r === r && dw.c === c - 1) || (dw.r === r && dw.c === c)))
-              );
+            const isPulsingWall = !payload.hasSilentShift && shiftProgressRatio >= 0.70;
+
+            const isCellBumped = isBumping && bumpedWallDir?.r === r && bumpedWallDir?.c === c;
+
+            const formatBorder = (wall: { hasWall: boolean; isDynamic: boolean }, isEdgeBumped: boolean) => {
+              if (!isVisible || !wall.hasWall) return 'none';
+              if (isEdgeBumped) return '3px solid #f43f5e';
+              if (wall.isDynamic) {
+                return isPulsingWall ? '3px solid #38bdf8' : '2.5px solid #0284c7';
+              }
+              return '2px solid #334155';
+            };
 
             return (
               <div
@@ -681,20 +730,15 @@ export const MovingMazeView: React.FC<
                     : 'bg-slate-900/60'
                 }`}
                 style={{
-                  borderTop: isVisible && hasWallTop ? '2.5px solid #334155' : 'none',
-                  borderBottom: isVisible && hasWallBottom ? '2.5px solid #334155' : 'none',
-                  borderLeft: isVisible && hasWallLeft ? '2.5px solid #334155' : 'none',
-                  borderRight: isVisible && hasWallRight ? '2.5px solid #334155' : 'none'
+                  borderTop: formatBorder(topWall, isCellBumped && bumpedWallDir?.dir === 'up'),
+                  borderBottom: formatBorder(bottomWall, isCellBumped && bumpedWallDir?.dir === 'down'),
+                  borderLeft: formatBorder(leftWall, isCellBumped && bumpedWallDir?.dir === 'left'),
+                  borderRight: formatBorder(rightWall, isCellBumped && bumpedWallDir?.dir === 'right')
                 }}
               >
-                {/* Dynamic wall warning pulse */}
-                {isVisible && isPulsingWall && (
-                  <div className="absolute inset-0 bg-blue-500/10 pointer-events-none animate-pulse" />
-                )}
-
                 {/* Hint Breadcrumb Marker */}
                 {isVisible && isHint && !isPlayer && !isExit && (
-                  <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] animate-pulse" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] animate-pulse" />
                 )}
 
                 {/* Trap Icon */}
@@ -721,7 +765,7 @@ export const MovingMazeView: React.FC<
                 {/* Exit Gate */}
                 {isVisible && isExit && (
                   <div
-                    className={`flex items-center justify-center rounded-lg w-4/5 h-4/5 border transition-all ${
+                    className={`relative flex items-center justify-center rounded-lg w-4/5 h-4/5 border transition-all ${
                       payload.keys.length === 0 || collectedKeyIds.length === payload.keys.length
                         ? 'bg-emerald-500/30 border-emerald-400 shadow-[0_0_12px_#10b981] animate-pulse'
                         : 'bg-slate-800/80 border-slate-700 opacity-60'
@@ -747,9 +791,54 @@ export const MovingMazeView: React.FC<
         </div>
       </div>
 
+      {/* On-screen Virtual D-Pad for Touch and Click controls */}
+      <div className="flex flex-col items-center gap-1 my-1 touch-none select-none" dir="ltr">
+        {/* Up Button */}
+        <button
+          type="button"
+          onClick={() => movePlayer('up')}
+          disabled={!introDismissed || locked || isResolvedRef.current}
+          aria-label="تحرك للأعلى"
+          className="w-14 h-10 sm:w-16 sm:h-11 flex items-center justify-center rounded-xl bg-slate-800/90 border border-slate-700 text-blue-300 active:bg-blue-600 active:text-white active:scale-95 shadow-md transition-all touch-manipulation cursor-pointer disabled:opacity-50"
+        >
+          <span className="text-xl font-bold">▲</span>
+        </button>
+
+        {/* Middle Row: Left, Down, Right */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => movePlayer('left')}
+            disabled={!introDismissed || locked || isResolvedRef.current}
+            aria-label="تحرك لليسار"
+            className="w-14 h-10 sm:w-16 sm:h-11 flex items-center justify-center rounded-xl bg-slate-800/90 border border-slate-700 text-blue-300 active:bg-blue-600 active:text-white active:scale-95 shadow-md transition-all touch-manipulation cursor-pointer disabled:opacity-50"
+          >
+            <span className="text-xl font-bold">◀</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => movePlayer('down')}
+            disabled={!introDismissed || locked || isResolvedRef.current}
+            aria-label="تحرك للأسفل"
+            className="w-14 h-10 sm:w-16 sm:h-11 flex items-center justify-center rounded-xl bg-slate-800/90 border border-slate-700 text-blue-300 active:bg-blue-600 active:text-white active:scale-95 shadow-md transition-all touch-manipulation cursor-pointer disabled:opacity-50"
+          >
+            <span className="text-xl font-bold">▼</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => movePlayer('right')}
+            disabled={!introDismissed || locked || isResolvedRef.current}
+            aria-label="تحرك لليمين"
+            className="w-14 h-10 sm:w-16 sm:h-11 flex items-center justify-center rounded-xl bg-slate-800/90 border border-slate-700 text-blue-300 active:bg-blue-600 active:text-white active:scale-95 shadow-md transition-all touch-manipulation cursor-pointer disabled:opacity-50"
+          >
+            <span className="text-xl font-bold">▶</span>
+          </button>
+        </div>
+      </div>
+
       {/* Footer Guidance */}
-      <div className="w-full text-center pb-1">
-        <p className="text-xs text-slate-400 font-medium leading-relaxed">
+      <div className="w-full text-center pb-0.5">
+        <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
           {payload.guidanceTextAr}
         </p>
       </div>
