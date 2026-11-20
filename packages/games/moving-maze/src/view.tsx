@@ -9,6 +9,7 @@ import type {
 } from './types.js';
 import { calculateMovingMazeScore } from './logic.js';
 import { findShortestPath } from './maze-generator.js';
+import { INTRO_CARDS } from './content.js';
 import { sound, haptics } from '@funnygame/ui';
 
 export const MovingMazeView: React.FC<
@@ -87,10 +88,16 @@ export const MovingMazeView: React.FC<
     setBumpedWallDir(null);
     setHintPath(null);
     setHintsAvailable(1);
-    setStatusNotice(null);
     setIsSuccessFeedback(false);
     isResolvedRef.current = false;
     startTimeRef.current = Date.now();
+
+    // Show brief non-blocking notification on new mechanics for later stages
+    if (question.stage > 1 && INTRO_CARDS[question.stage]) {
+      showNotice(INTRO_CARDS[question.stage]!);
+    } else {
+      setStatusNotice(null);
+    }
 
     const map = new Map<string, boolean>();
     payload.dynamicWalls.forEach((dw) => {

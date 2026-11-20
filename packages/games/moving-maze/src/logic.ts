@@ -83,9 +83,9 @@ export class MovingMazeLogic
     const stage = cfg.stage;
     const payload = generateMovingMazeQuestion(rng, stage, index);
 
-    // Intro card on stage milestone or stage 1
-    if (INTRO_CARDS[stage]) {
-      payload.introCardAr = INTRO_CARDS[stage];
+    // Show intro modal card ONLY at the very beginning of the run (Stage 1, index 0)
+    if (index === 0 && stage === 1 && INTRO_CARDS[1]) {
+      payload.introCardAr = INTRO_CARDS[1];
     }
 
     return {
