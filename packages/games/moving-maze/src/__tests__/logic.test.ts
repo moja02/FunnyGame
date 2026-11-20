@@ -74,13 +74,14 @@ describe('Moving Maze Logic', () => {
 
   describe('100% Solvability Guarantee (BFS Pathfinding)', () => {
     it('guarantees every generated question has a valid path from start to keys to exit', () => {
-      const testStages = [1, 5, 8, 10, 14, 20, 26, 35, 46, 50];
+      const testStages = [1, 5, 8, 9, 10, 14, 15, 20, 26, 35, 46, 50];
       for (const stage of testStages) {
-        for (let seed = 100; seed < 105; seed++) {
+        for (let seed = 1; seed <= 20; seed++) {
           const rng = createRng(seed);
           const payload = generateMovingMazeQuestion(rng, stage, 0);
 
-          // Test BFS solvability through all keys to exit
+          // Test BFS solvability through all keys to exit WITHOUT stepping on traps
+          const trapsSet = new Set(payload.traps.map((t) => `${t.r},${t.c}`));
           const waypoints = [payload.startPos, ...payload.keys, payload.exitPos];
           for (let w = 0; w < waypoints.length - 1; w++) {
             const segment = findShortestPath(
@@ -88,7 +89,8 @@ describe('Moving Maze Logic', () => {
               waypoints[w + 1]!,
               payload.gridSize,
               payload.hWalls,
-              payload.vWalls
+              payload.vWalls,
+              trapsSet
             );
             expect(segment).not.toBeNull();
             expect(segment!.length).toBeGreaterThan(1);
@@ -96,6 +98,21 @@ describe('Moving Maze Logic', () => {
 
           expect(payload.initialShortestPathLength).toBeGreaterThan(0);
           expect(payload.allowedMoves).toBeGreaterThanOrEqual(payload.initialShortestPathLength);
+        }
+      }
+    });
+
+    it('guarantees traps are never adjacent to start or exit', () => {
+      for (const stage of [8, 9, 10, 14, 15, 20, 25, 30]) {
+        for (let seed = 1; seed <= 20; seed++) {
+          const rng = createRng(seed);
+          const payload = generateMovingMazeQuestion(rng, stage, 0);
+          for (const trap of payload.traps) {
+            const distFromStart = Math.abs(trap.r - payload.startPos.r) + Math.abs(trap.c - payload.startPos.c);
+            const distFromExit = Math.abs(trap.r - payload.exitPos.r) + Math.abs(trap.c - payload.exitPos.c);
+            expect(distFromStart).toBeGreaterThanOrEqual(2);
+            expect(distFromExit).toBeGreaterThanOrEqual(2);
+          }
         }
       }
     });

@@ -505,7 +505,8 @@ export const MovingMazeView: React.FC<
       })
     );
 
-    const path = findShortestPath(playerPos, targetCoord, n, curHWalls, curVWalls);
+    const trapsSet = new Set(payload.traps.map((t) => `${t.r},${t.c}`));
+    const path = findShortestPath(playerPos, targetCoord, n, curHWalls, curVWalls, trapsSet);
     if (path) {
       setHintPath(path);
       setTimeout(() => {

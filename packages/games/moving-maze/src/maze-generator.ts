@@ -88,7 +88,8 @@ export function findShortestPath(
   target: GridCoord,
   gridSize: number,
   hWalls: boolean[][],
-  vWalls: boolean[][]
+  vWalls: boolean[][],
+  blockedCells?: Set<string>
 ): GridCoord[] | null {
   const queue: { coord: GridCoord; path: GridCoord[] }[] = [
     { coord: start, path: [start] }
@@ -105,28 +106,65 @@ export function findShortestPath(
     const { r, c } = coord;
 
     // Up: check hWalls[r - 1][c]
-    if (r > 0 && !hWalls[r - 1]![c] && !visited.has(`${r - 1},${c}`)) {
-      visited.add(`${r - 1},${c}`);
-      queue.push({ coord: { r: r - 1, c }, path: [...path, { r: r - 1, c }] });
+    if (r > 0 && !hWalls[r - 1]![c]) {
+      const key = `${r - 1},${c}`;
+      const isTarget = r - 1 === target.r && c === target.c;
+      if (!visited.has(key) && (!blockedCells?.has(key) || isTarget)) {
+        visited.add(key);
+        queue.push({ coord: { r: r - 1, c }, path: [...path, { r: r - 1, c }] });
+      }
     }
     // Down: check hWalls[r][c]
-    if (r < gridSize - 1 && !hWalls[r]![c] && !visited.has(`${r + 1},${c}`)) {
-      visited.add(`${r + 1},${c}`);
-      queue.push({ coord: { r: r + 1, c }, path: [...path, { r: r + 1, c }] });
+    if (r < gridSize - 1 && !hWalls[r]![c]) {
+      const key = `${r + 1},${c}`;
+      const isTarget = r + 1 === target.r && c === target.c;
+      if (!visited.has(key) && (!blockedCells?.has(key) || isTarget)) {
+        visited.add(key);
+        queue.push({ coord: { r: r + 1, c }, path: [...path, { r: r + 1, c }] });
+      }
     }
     // Left: check vWalls[r][c - 1]
-    if (c > 0 && !vWalls[r]![c - 1] && !visited.has(`${r},${c - 1}`)) {
-      visited.add(`${r},${c - 1}`);
-      queue.push({ coord: { r, c: c - 1 }, path: [...path, { r, c: c - 1 }] });
+    if (c > 0 && !vWalls[r]![c - 1]) {
+      const key = `${r},${c - 1}`;
+      const isTarget = r === target.r && c - 1 === target.c;
+      if (!visited.has(key) && (!blockedCells?.has(key) || isTarget)) {
+        visited.add(key);
+        queue.push({ coord: { r, c: c - 1 }, path: [...path, { r, c: c - 1 }] });
+      }
     }
     // Right: check vWalls[r][c]
-    if (c < gridSize - 1 && !vWalls[r]![c] && !visited.has(`${r},${c + 1}`)) {
-      visited.add(`${r},${c + 1}`);
-      queue.push({ coord: { r, c: c + 1 }, path: [...path, { r, c: c + 1 }] });
+    if (c < gridSize - 1 && !vWalls[r]![c]) {
+      const key = `${r},${c + 1}`;
+      const isTarget = r === target.r && c + 1 === target.c;
+      if (!visited.has(key) && (!blockedCells?.has(key) || isTarget)) {
+        visited.add(key);
+        queue.push({ coord: { r, c: c + 1 }, path: [...path, { r, c: c + 1 }] });
+      }
     }
   }
 
   return null;
+}
+
+export function canSolveThroughWaypoints(
+  waypoints: GridCoord[],
+  gridSize: number,
+  hWalls: boolean[][],
+  vWalls: boolean[][],
+  blockedCells?: Set<string>
+): boolean {
+  for (let w = 0; w < waypoints.length - 1; w++) {
+    const segment = findShortestPath(
+      waypoints[w]!,
+      waypoints[w + 1]!,
+      gridSize,
+      hWalls,
+      vWalls,
+      blockedCells
+    );
+    if (!segment) return false;
+  }
+  return true;
 }
 
 /**
@@ -228,6 +266,27 @@ export function generateMovingMazeQuestion(
     }
   }
 
+  // 2.5 Extra loop carving (remove 15% of remaining closed walls to create multiple paths/loops)
+  const remainingClosedWalls: { type: 'H' | 'V'; r: number; c: number }[] = [];
+  for (let r = 0; r < n - 1; r++) {
+    for (let c = 0; c < n; c++) {
+      if (hWalls[r]![c]) remainingClosedWalls.push({ type: 'H', r, c });
+    }
+  }
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n - 1; c++) {
+      if (vWalls[r]![c]) remainingClosedWalls.push({ type: 'V', r, c });
+    }
+  }
+
+  const shuffledWalls = rng.shuffle(remainingClosedWalls);
+  const extraCarveCount = Math.floor(remainingClosedWalls.length * 0.15);
+  for (let i = 0; i < extraCarveCount; i++) {
+    const w = shuffledWalls[i]!;
+    if (w.type === 'H') hWalls[w.r]![w.c] = false;
+    else vWalls[w.r]![w.c] = false;
+  }
+
   // 3. Define Start and Exit positions
   const startPos: GridCoord = { r: 0, c: 0 };
   const exitPos: GridCoord = { r: n - 1, c: n - 1 };
@@ -256,25 +315,61 @@ export function generateMovingMazeQuestion(
   }
   waypoints.push(exitPos);
 
-  // 5. Calculate golden path length (P_shortest)
-  let totalShortestPathLength = 0;
-  const goldenPathCoords = new Set<string>();
+  // 5. Guaranteed Safe Trap Placement
+  // Traps must NEVER block the only path to keys or exit!
+  // Traps must be >= 2 steps away from start and exit.
+  const traps: GridCoord[] = [];
+  const trapsSet = new Set<string>();
 
+  if (rules.trapCount > 0) {
+    const candidateTrapCells: GridCoord[] = [];
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        const isStart = r === startPos.r && c === startPos.c;
+        const isExit = r === exitPos.r && c === exitPos.c;
+        const isKey = keys.some((k) => k.r === r && k.c === c);
+        const distFromStart = Math.abs(r - startPos.r) + Math.abs(c - startPos.c);
+        const distFromExit = Math.abs(r - exitPos.r) + Math.abs(c - exitPos.c);
+
+        if (!isStart && !isExit && !isKey && distFromStart >= 2 && distFromExit >= 2) {
+          candidateTrapCells.push({ r, c });
+        }
+      }
+    }
+
+    const shuffledCandidates = rng.shuffle(candidateTrapCells);
+    for (const cand of shuffledCandidates) {
+      if (traps.length >= rules.trapCount) break;
+      const testKey = `${cand.r},${cand.c}`;
+      trapsSet.add(testKey);
+
+      // Verify that a clear path through all waypoints still exists WITHOUT touching any trap
+      if (canSolveThroughWaypoints(waypoints, n, hWalls, vWalls, trapsSet)) {
+        traps.push(cand);
+      } else {
+        // Unsolvable if trap placed here! Revert and keep path open!
+        trapsSet.delete(testKey);
+      }
+    }
+  }
+
+  // 6. Calculate golden path length (P_shortest) avoiding all traps
+  let totalShortestPathLength = 0;
   for (let w = 0; w < waypoints.length - 1; w++) {
     const segment = findShortestPath(
       waypoints[w]!,
       waypoints[w + 1]!,
       n,
       hWalls,
-      vWalls
+      vWalls,
+      trapsSet
     );
     if (segment) {
       totalShortestPathLength += segment.length - 1;
-      segment.forEach((pt) => goldenPathCoords.add(`${pt.r},${pt.c}`));
     }
   }
 
-  // 6. Select Dynamic Walls (walls that toggle open/closed)
+  // 7. Select Dynamic Walls (walls that toggle open/closed)
   // Dynamic walls are selected from secondary/alternative passages
   const dynamicWalls: DynamicWallDef[] = [];
   const candidateWalls: DynamicWallDef[] = [];
@@ -304,29 +399,6 @@ export function generateMovingMazeQuestion(
   for (let i = 0; i < dynamicWallCount; i++) {
     const cand = shuffledCandidates[i]!;
     dynamicWalls.push(cand);
-  }
-
-  // 7. Place Traps (return traps that send player to start)
-  // Must NOT be placed at start, exit, on key cells, or directly blocking unavoidable single paths
-  const traps: GridCoord[] = [];
-  if (rules.trapCount > 0) {
-    const candidateTrapCells: GridCoord[] = [];
-    for (let r = 0; r < n; r++) {
-      for (let c = 0; c < n; c++) {
-        const isStart = r === startPos.r && c === startPos.c;
-        const isExit = r === exitPos.r && c === exitPos.c;
-        const isKey = keys.some((k) => k.r === r && k.c === c);
-        if (!isStart && !isExit && !isKey) {
-          candidateTrapCells.push({ r, c });
-        }
-      }
-    }
-
-    const shuffledTraps = rng.shuffle(candidateTrapCells);
-    const count = Math.min(rules.trapCount, shuffledTraps.length);
-    for (let t = 0; t < count; t++) {
-      traps.push(shuffledTraps[t]!);
-    }
   }
 
   // 8. Move Limit (M_allowed) and Time Limit (T_q) calculation
