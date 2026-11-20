@@ -28,6 +28,7 @@ export interface MovingMazeQuestionPayload {
   keys: KeyItem[];
   hasSilentShift: boolean; // stages 14+
   hasFogOfWar: boolean; // stages 26+
+  isBreathing?: boolean;
   visionRadius: number; // 3, or 2 in 65+
   wallShiftIntervalSec: number; // 5.0s down to 2.0s
   initialShortestPathLength: number; // P_shortest

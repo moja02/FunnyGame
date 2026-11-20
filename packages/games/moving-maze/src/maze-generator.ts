@@ -435,6 +435,7 @@ export function generateMovingMazeQuestion(
     keys,
     hasSilentShift: rules.hasSilentShift,
     hasFogOfWar: rules.hasFogOfWar,
+    isBreathing: rules.isBreathing,
     visionRadius: rules.visionRadius,
     wallShiftIntervalSec: rules.wallShiftIntervalSec,
     initialShortestPathLength: pShortest,

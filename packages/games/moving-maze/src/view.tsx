@@ -29,7 +29,8 @@ export const MovingMazeView: React.FC<
   const [isBumping, setIsBumping] = useState<boolean>(false);
   const [bumpedWallDir, setBumpedWallDir] = useState<{ r: number; c: number; dir: string } | null>(null);
   const [hintPath, setHintPath] = useState<GridCoord[] | null>(null);
-  const [hintsAvailable, setHintsAvailable] = useState<number>(1);
+  const [hintsAvailable, setHintsAvailable] = useState<number>(2);
+  const [hintUsedThisStage, setHintUsedThisStage] = useState<boolean>(false);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
   const [isSuccessFeedback, setIsSuccessFeedback] = useState<boolean>(false);
 
@@ -87,15 +88,33 @@ export const MovingMazeView: React.FC<
     setIsBumping(false);
     setBumpedWallDir(null);
     setHintPath(null);
-    setHintsAvailable(1);
+    setHintUsedThisStage(false);
     setIsSuccessFeedback(false);
     isResolvedRef.current = false;
     startTimeRef.current = Date.now();
 
+    // Shared Hint Bank:
+    // Reset to 2 at match start (stage 1, index 0).
+    // Reward +1 bonus hint when entering stage after defeating a boss (stages 6, 11, 16, 21...) or breathing stages, capped at 3.
+    if (question.stage === 1 && question.index === 0) {
+      setHintsAvailable(2);
+    } else if (
+      question.index === 0 &&
+      ((question.stage - 1) % 5 === 0 || payload.isBreathing)
+    ) {
+      setHintsAvailable((prev) => {
+        const next = Math.min(3, prev + 1);
+        if (next > prev) {
+          showNotice('مكافأة اجتياز الزعيم: حصلت على تلميح إضافي! 💡+1');
+        }
+        return next;
+      });
+    }
+
     // Show brief non-blocking notification on new mechanics for later stages
     if (question.stage > 1 && INTRO_CARDS[question.stage]) {
       showNotice(INTRO_CARDS[question.stage]!);
-    } else {
+    } else if (!(question.index === 0 && ((question.stage - 1) % 5 === 0 || payload.isBreathing))) {
       setStatusNotice(null);
     }
 
@@ -104,7 +123,7 @@ export const MovingMazeView: React.FC<
       map.set(`${dw.type}-${dw.r}-${dw.c}`, !dw.isOpenInitially);
     });
     setActiveDynamicWalls(map);
-  }, [question.index, question.stage, payload]);
+  }, [question.index, question.stage, payload, showNotice]);
 
   // Overall Question Timer countdown
   useEffect(() => {
@@ -359,6 +378,9 @@ export const MovingMazeView: React.FC<
           payload.timeLimitMs,
           comboStreakRef.current
         );
+        const finalPoints = hintUsedThisStage
+          ? Math.max(100, Math.round(earnedPoints * 0.75))
+          : earnedPoints;
 
         setTimeout(() => {
           onAnswer({
@@ -368,7 +390,7 @@ export const MovingMazeView: React.FC<
             durationMs,
             collectedKeysCount: updatedKeys.length,
             trapsTriggeredCount: 0,
-            totalPoints: earnedPoints
+            totalPoints: finalPoints
           });
         }, 300);
         return;
@@ -406,6 +428,7 @@ export const MovingMazeView: React.FC<
       payload,
       collectedKeyIds,
       remainingTimeMs,
+      hintUsedThisStage,
       showNotice,
       onAnswer
     ]
@@ -445,6 +468,67 @@ export const MovingMazeView: React.FC<
     touchStartRef.current = null;
   };
 
+  // Use Hint (Compass Nudge: Reveals only immediate next 3 steps for 1.3s, with a 25% stage score penalty)
+  const handleUseHint = useCallback(() => {
+    if (!introDismissed || isResolvedRef.current) return;
+
+    if (hintsAvailable <= 0) {
+      sound.wrong();
+      haptics.error();
+      showNotice('لا توجد تلميحات متبقية! تكسب تلميحاً بعد كل زعيم 💡');
+      return;
+    }
+
+    setHintsAvailable((h) => Math.max(0, h - 1));
+    setHintUsedThisStage(true);
+    sound.tap();
+    haptics.medium();
+    showNotice('💡 بوصلة: إليك اتجاه أول 3 خطوات (-25% نقاط المرحلة)');
+
+    // Determine next target: next uncollected key, or exit
+    const nextKeyId = collectedKeyIds.length + 1;
+    const nextKey = payload.keys.find((k) => k.id === nextKeyId);
+    const targetCoord = nextKey ? { r: nextKey.r, c: nextKey.c } : payload.exitPos;
+
+    // Convert active dynamic walls to full grid walls for BFS
+    const curHWalls = payload.hWalls.map((row, r) =>
+      row.map((wall, c) => {
+        const dynKey = `H-${r}-${c}`;
+        return activeDynamicWalls.has(dynKey) ? activeDynamicWalls.get(dynKey)! : wall;
+      })
+    );
+    const curVWalls = payload.vWalls.map((row, r) =>
+      row.map((wall, c) => {
+        const dynKey = `V-${r}-${c}`;
+        return activeDynamicWalls.has(dynKey) ? activeDynamicWalls.get(dynKey)! : wall;
+      })
+    );
+
+    const trapsSet = new Set(payload.traps.map((t) => `${t.r},${t.c}`));
+    const fullPath = findShortestPath(playerPos, targetCoord, n, curHWalls, curVWalls, trapsSet);
+    if (fullPath && fullPath.length > 1) {
+      // Compass nudge: reveal only the current pos + next 3 steps (total 4 coords)
+      const compassPath = fullPath.slice(0, 4);
+      setHintPath(compassPath);
+      setTimeout(() => {
+        setHintPath(null);
+      }, 1300);
+    }
+  }, [
+    hintsAvailable,
+    introDismissed,
+    collectedKeyIds,
+    payload.keys,
+    payload.exitPos,
+    payload.hWalls,
+    payload.vWalls,
+    payload.traps,
+    activeDynamicWalls,
+    playerPos,
+    n,
+    showNotice
+  ]);
+
   // Keyboard navigation: Arrow keys & WASD
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -476,55 +560,7 @@ export const MovingMazeView: React.FC<
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [introDismissed, handleDismissIntro, movePlayer]);
-
-  // Use Hint (Draws shortest path to next target for 1.2s)
-  const handleUseHint = useCallback(() => {
-    if (hintsAvailable <= 0 || !introDismissed || isResolvedRef.current) return;
-
-    setHintsAvailable(0);
-    sound.tap();
-    haptics.medium();
-
-    // Determine next target: next uncollected key, or exit
-    const nextKeyId = collectedKeyIds.length + 1;
-    const nextKey = payload.keys.find((k) => k.id === nextKeyId);
-    const targetCoord = nextKey ? { r: nextKey.r, c: nextKey.c } : payload.exitPos;
-
-    // Convert active dynamic walls to full grid walls for BFS
-    const curHWalls = payload.hWalls.map((row, r) =>
-      row.map((wall, c) => {
-        const dynKey = `H-${r}-${c}`;
-        return activeDynamicWalls.has(dynKey) ? activeDynamicWalls.get(dynKey)! : wall;
-      })
-    );
-    const curVWalls = payload.vWalls.map((row, r) =>
-      row.map((wall, c) => {
-        const dynKey = `V-${r}-${c}`;
-        return activeDynamicWalls.has(dynKey) ? activeDynamicWalls.get(dynKey)! : wall;
-      })
-    );
-
-    const trapsSet = new Set(payload.traps.map((t) => `${t.r},${t.c}`));
-    const path = findShortestPath(playerPos, targetCoord, n, curHWalls, curVWalls, trapsSet);
-    if (path) {
-      setHintPath(path);
-      setTimeout(() => {
-        setHintPath(null);
-      }, 1200);
-    }
-  }, [
-    hintsAvailable,
-    introDismissed,
-    collectedKeyIds,
-    payload.keys,
-    payload.exitPos,
-    payload.hWalls,
-    payload.vWalls,
-    activeDynamicWalls,
-    playerPos,
-    n
-  ]);
+  }, [introDismissed, handleDismissIntro, movePlayer, handleUseHint]);
 
   // Fog of War (Darkness) calculation: determines if cell is visible
   const isCellVisible = useCallback(
@@ -614,11 +650,16 @@ export const MovingMazeView: React.FC<
           {/* Hint Button */}
           <button
             onClick={handleUseHint}
-            disabled={hintsAvailable <= 0 || !introDismissed || locked}
+            disabled={!introDismissed || locked}
+            title={
+              hintsAvailable > 0
+                ? 'تلميح بوصلة يوضح أول 3 خطوات (-25% من نقاط المرحلة)'
+                : 'نفدت التلميحات (تكسب تلميحاً إضافياً بعد كل زعيم)'
+            }
             className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition-all ${
               hintsAvailable > 0
                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 active:scale-95 shadow-[0_0_10px_rgba(245,158,11,0.2)] cursor-pointer'
-                : 'bg-slate-800/40 text-slate-600 border-slate-800 cursor-not-allowed opacity-50'
+                : 'bg-slate-800/40 text-slate-500 border-slate-800 cursor-not-allowed opacity-60'
             }`}
           >
             تلميح ({hintsAvailable}) 💡
