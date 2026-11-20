@@ -53,6 +53,14 @@ const readyGames = [
     color: 'from-purple-500/20 to-indigo-600/30 border-purple-500/40 text-purple-300'
   },
   {
+    id: 'moving-maze',
+    title: 'متاهة تتحرك',
+    ability: 'الذكاء والمنطق 💡',
+    icon: '🧭',
+    description: 'تنقل في المتاهة المتغيرة بذكاء، تفادَ الفخاخ واجمع المفاتيح واصل للمخرج بأقل خطوات!',
+    color: 'from-blue-500/20 to-indigo-600/30 border-blue-500/40 text-blue-300'
+  },
+  {
     id: 'dont-tap',
     title: 'لا تضغط!',
     ability: 'السرعة والتركيز ⚡',

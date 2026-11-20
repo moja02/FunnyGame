@@ -17,6 +17,7 @@
     "@funnygame/game-dont-tap": "workspace:*",
     "@funnygame/game-follow-pattern": "workspace:*",
     "@funnygame/game-math-bridge": "workspace:*",
+    "@funnygame/game-moving-maze": "workspace:*",
     "@funnygame/game-number-hunt": "workspace:*",
     "@funnygame/game-odd-one-out": "workspace:*",
     "@funnygame/game-watch-and-judge": "workspace:*",

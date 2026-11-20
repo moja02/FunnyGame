@@ -33,6 +33,8 @@ const GAME_NAMES: Record<string, { title: string; ability: string; icon: string 
   'where_did_it_go': { title: 'أين اختفت؟', ability: 'الذاكرة والاستدعاء 🧠', icon: '🔍' },
   'watch-and-judge': { title: 'شاهد واحكم', ability: 'الذاكرة والاستدعاء 🧠', icon: '👁️' },
   'watch_and_judge': { title: 'شاهد واحكم', ability: 'الذاكرة والاستدعاء 🧠', icon: '👁️' },
+  'moving-maze': { title: 'متاهة تتحرك', ability: 'الذكاء والمنطق 💡', icon: '🧭' },
+  'moving_maze': { title: 'متاهة تتحرك', ability: 'الذكاء والمنطق 💡', icon: '🧭' },
   'dont-tap': { title: 'لا تضغط!', ability: 'السرعة والتركيز ⚡', icon: '🛑' },
   'dont_tap': { title: 'لا تضغط!', ability: 'السرعة والتركيز ⚡', icon: '🛑' },
   'odd-one-out': { title: 'الدخيل', ability: 'السرعة والتركيز ⚡', icon: '👁️' },

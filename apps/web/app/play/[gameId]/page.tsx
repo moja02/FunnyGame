@@ -14,6 +14,8 @@ export function generateStaticParams() {
     { gameId: 'where_did_it_go' },
     { gameId: 'watch-and-judge' },
     { gameId: 'watch_and_judge' },
+    { gameId: 'moving-maze' },
+    { gameId: 'moving_maze' },
     { gameId: 'color-trap' },
     { gameId: 'dont-tap' },
     { gameId: 'dont_tap' },

@@ -10,6 +10,7 @@ const nextConfig = {
     '@funnygame/game-dont-tap',
     '@funnygame/game-follow-pattern',
     '@funnygame/game-math-bridge',
+    '@funnygame/game-moving-maze',
     '@funnygame/game-number-hunt',
     '@funnygame/game-odd-one-out',
     '@funnygame/game-watch-and-judge',

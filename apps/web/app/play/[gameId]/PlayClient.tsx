@@ -30,6 +30,7 @@ import '@funnygame/game-color-trap';
 import '@funnygame/game-dont-tap';
 import '@funnygame/game-follow-pattern';
 import '@funnygame/game-math-bridge';
+import '@funnygame/game-moving-maze';
 import '@funnygame/game-number-hunt';
 import '@funnygame/game-odd-one-out';
 import '@funnygame/game-watch-and-judge';
@@ -45,6 +46,30 @@ const GAME_METADATA: Record<
     rules: string[];
   }
 > = {
+  'moving-maze': {
+    title: 'متاهة تتحرك',
+    abilityName: 'الذكاء والمنطق 💡',
+    icon: '🧭',
+    abilityBadgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    rules: [
+      'اسحب النقطة المضيئة أو انقر للتحرك نحو المخرج الأخضر.',
+      'انتبه للجدران المتبدلة التي تفتح وتغلق بانتظام (أو فجأة في المراحل المتقدمة).',
+      'تجنب الفخاخ الحمراء حتى لا تعود لنقطة البداية، واجمع المفاتيح بالترتيب.',
+      'حافظ على رصيد خطواتك قبل أن ينفد الوقت المتاح!'
+    ]
+  },
+  'moving_maze': {
+    title: 'متاهة تتحرك',
+    abilityName: 'الذكاء والمنطق 💡',
+    icon: '🧭',
+    abilityBadgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    rules: [
+      'اسحب النقطة المضيئة أو انقر للتحرك نحو المخرج الأخضر.',
+      'انتبه للجدران المتبدلة التي تفتح وتغلق بانتظام (أو فجأة في المراحل المتقدمة).',
+      'تجنب الفخاخ الحمراء حتى لا تعود لنقطة البداية، واجمع المفاتيح بالترتيب.',
+      'حافظ على رصيد خطواتك قبل أن ينفد الوقت المتاح!'
+    ]
+  },
   'watch-and-judge': {
     title: 'شاهد واحكم',
     abilityName: 'الذاكرة والاستدعاء 🧠',
@@ -491,7 +516,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       gameId === 'where-did-it-go' ||
       gameId === 'where_did_it_go' ||
       gameId === 'watch-and-judge' ||
-      gameId === 'watch_and_judge'
+      gameId === 'watch_and_judge' ||
+      gameId === 'moving-maze' ||
+      gameId === 'moving_maze'
     );
     if (!hasIntroCard && !hasManualTimer) {
       startTimer();
@@ -798,9 +825,12 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         <>
           <Hud hearts={hearts} stage={stage} score={score} isBoss={stageCfg.isBoss} />
           <div className="px-4 mt-1">
-            {gameId !== 'watch-and-judge' && gameId !== 'watch_and_judge' && (
-              <TimerBar remainingMs={remainingMs} totalMs={timeLimitMs} />
-            )}
+            {gameId !== 'watch-and-judge' &&
+              gameId !== 'watch_and_judge' &&
+              gameId !== 'moving-maze' &&
+              gameId !== 'moving_maze' && (
+                <TimerBar remainingMs={remainingMs} totalMs={timeLimitMs} />
+              )}
             <ComboMeter combo={combo} />
           </div>
         </>

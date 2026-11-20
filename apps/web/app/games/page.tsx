@@ -214,6 +214,16 @@ const allGames: GameItem[] = [
 
   // 4. الذكاء والمنطق
   {
+    id: 'moving-maze',
+    title: 'متاهة تتحرك',
+    ability: 'logic',
+    abilityName: 'الذكاء والمنطق',
+    icon: '🧭',
+    description: 'تنقل في المتاهة المتغيرة بذكاء، تفادَ الفخاخ واجمع المفاتيح واصل للمخرج.',
+    status: 'ready',
+    stages: '70+ مرحلة'
+  },
+  {
     id: 'heaviest-lightest',
     title: 'الأثقل والأخف',
     ability: 'logic',
