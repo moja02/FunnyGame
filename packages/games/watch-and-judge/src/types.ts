@@ -15,6 +15,7 @@ export interface SceneItem {
   shape: string;
   colorName: string;
   textColorClass: string;
+  colorHex: string;
   rotationDeg: number;
   scale: number;
 }

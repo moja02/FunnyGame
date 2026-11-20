@@ -137,6 +137,7 @@ export function generateSingleRound(
       shape,
       colorName: color.name,
       textColorClass: color.textColorClass,
+      colorHex: color.hex,
       rotationDeg,
       scale
     };
@@ -164,6 +165,7 @@ export function generateSingleRound(
         shape,
         colorName: color.name,
         textColorClass: color.textColorClass,
+        colorHex: color.hex,
         rotationDeg: rng.pick(ROTATIONS),
         scale: 1.0
       };
@@ -209,6 +211,7 @@ export function generateSingleRound(
     const newColor = rng.pick(otherColors);
     item2.colorName = newColor.name;
     item2.textColorClass = newColor.textColorClass;
+    item2.colorHex = newColor.hex;
   } else {
     // Single Change
     const targetIdx = rng.pick(occupiedIndices);
@@ -240,6 +243,7 @@ export function generateSingleRound(
       const newColor = rng.pick(otherColors);
       item.colorName = newColor.name;
       item.textColorClass = newColor.textColorClass;
+      item.colorHex = newColor.hex;
       basePoints = 150;
     } else if (changeType === 'SWAP') {
       changeCategory = 'SWAP';
@@ -268,6 +272,7 @@ export function generateSingleRound(
         const newColor = rng.pick(otherColors);
         item.colorName = newColor.name;
         item.textColorClass = newColor.textColorClass;
+        item.colorHex = newColor.hex;
         basePoints = 150;
       }
     } else if (changeType === 'ROTATION') {
@@ -290,6 +295,7 @@ export function generateSingleRound(
       const item = sceneB[targetIdx]!;
       const colorDef = COLORS.find((c) => c.name === item.colorName) || COLORS[0]!;
       item.textColorClass = colorDef.subtleVariantClass;
+      item.colorHex = colorDef.subtleHex;
       basePoints = 225;
     }
   }

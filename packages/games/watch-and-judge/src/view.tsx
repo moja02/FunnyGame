@@ -9,6 +9,7 @@ import type {
   SceneItem
 } from './types.js';
 import { calculateWatchAndJudgeRoundScore } from './logic.js';
+import { SHAPE_PATHS } from './palette.js';
 import { sound, haptics } from '@funnygame/ui';
 
 export const WatchAndJudgeView: React.FC<
@@ -676,14 +677,16 @@ export const WatchAndJudgeView: React.FC<
                 }`}
               >
                 {item && (
-                  <span
-                    className={`text-2xl sm:text-3xl font-bold transition-transform duration-150 ${item.textColorClass}`}
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill={item.colorHex || 'currentColor'}
+                    className={`w-7 h-7 sm:w-8 sm:h-8 transition-transform duration-150 drop-shadow-sm ${item.textColorClass}`}
                     style={{
                       transform: `rotate(${item.rotationDeg}deg) scale(${item.scale})`
                     }}
                   >
-                    {item.shape}
-                  </span>
+                    <path d={SHAPE_PATHS[item.shape] || SHAPE_PATHS['ARROW']!} />
+                  </svg>
                 )}
 
                 {/* Vanish Target Indicator on feedback */}
