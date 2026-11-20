@@ -6,7 +6,7 @@ import type {
   WatchAndJudgeRound,
   WatchAndJudgeQuestionPayload
 } from './types.js';
-import { SHAPES, COLORS, ROTATIONS, SCALES } from './palette.js';
+import { SHAPES, COLORS, ROTATIONS } from './palette.js';
 
 export interface StageRules {
   itemCount: number;
@@ -129,8 +129,8 @@ export function generateSingleRound(
   for (const idx of occupiedIndices) {
     const shape = rng.pick(SHAPES);
     const color = rng.pick(COLORS);
-    const rotationDeg = rng.pick(ROTATIONS);
-    const scale = rng.pick(SCALES);
+    const rotationDeg = rng.pick([0, 90, 180, 270]);
+    const scale = 1.0;
 
     sceneA[idx] = {
       id: idx,
@@ -197,12 +197,12 @@ export function generateSingleRound(
     const targets = rng.shuffle([...occupiedIndices]).slice(0, 2);
     validTargetIndices = targets;
 
-    // Apply modification to target 1
+    // Apply modification to target 1 (180° rotation inversion)
     const t1 = targets[0]!;
     const item1 = sceneB[t1]!;
-    item1.rotationDeg = (item1.rotationDeg + 90) % 360;
+    item1.rotationDeg = (item1.rotationDeg + 180) % 360;
 
-    // Apply modification to target 2
+    // Apply modification to target 2 (distinct color)
     const t2 = targets[1]!;
     const item2 = sceneB[t2]!;
     const otherColors = COLORS.filter((c) => c.name !== item2.colorName);
@@ -243,24 +243,47 @@ export function generateSingleRound(
       basePoints = 150;
     } else if (changeType === 'SWAP') {
       changeCategory = 'SWAP';
-      const otherOccupied = occupiedIndices.filter((idx) => idx !== targetIdx);
-      const secondTarget = rng.pick(otherOccupied);
-      validTargetIndices = [targetIdx, secondTarget]; // Clicking either target is correct!
+      // Pick a second target that is VISUALLY DIFFERENT from targetIdx (different shape or color)
+      const otherOccupied = occupiedIndices.filter((idx) => {
+        if (idx === targetIdx) return false;
+        const a = sceneA[targetIdx]!;
+        const b = sceneA[idx]!;
+        return a.shape !== b.shape || a.colorName !== b.colorName;
+      });
 
-      const temp = sceneB[targetIdx]!;
-      sceneB[targetIdx] = sceneB[secondTarget]!;
-      sceneB[secondTarget] = temp;
-      basePoints = 150;
+      if (otherOccupied.length > 0) {
+        const secondTarget = rng.pick(otherOccupied);
+        validTargetIndices = [targetIdx, secondTarget]; // Clicking either swapped target is correct!
+
+        const temp = sceneB[targetIdx]!;
+        sceneB[targetIdx] = sceneB[secondTarget]!;
+        sceneB[secondTarget] = temp;
+        basePoints = 150;
+      } else {
+        // Fallback: If all shapes & colors happen to be identical, do COLOR_SHIFT_MAJOR
+        changeCategory = 'MAJOR';
+        changeType = 'COLOR_SHIFT_MAJOR';
+        const item = sceneB[targetIdx]!;
+        const otherColors = COLORS.filter((c) => c.name !== item.colorName);
+        const newColor = rng.pick(otherColors);
+        item.colorName = newColor.name;
+        item.textColorClass = newColor.textColorClass;
+        basePoints = 150;
+      }
     } else if (changeType === 'ROTATION') {
       changeCategory = 'MINOR';
       const item = sceneB[targetIdx]!;
-      const otherRotations = ROTATIONS.filter((r) => r !== item.rotationDeg);
-      item.rotationDeg = rng.pick(otherRotations);
+      const originalRot = item.rotationDeg;
+      // All shapes in SHAPES are strictly directional; rotating by 90°, 180°, or 270° is drastically distinct
+      const deltaAngles = [90, 180, 270];
+      const delta = rng.pick(deltaAngles);
+      item.rotationDeg = (originalRot + delta) % 360;
       basePoints = 225;
     } else if (changeType === 'SIZE_CHANGE') {
       changeCategory = 'MINOR';
       const item = sceneB[targetIdx]!;
-      item.scale = item.scale === 1.0 ? 0.78 : 1.0;
+      // Obvious scale difference: 0.60 (very noticeably smaller) or 1.40 (very noticeably larger)
+      item.scale = rng.next() < 0.5 ? 0.60 : 1.40;
       basePoints = 225;
     } else if (changeType === 'COLOR_SHIFT_MINOR') {
       changeCategory = 'MINOR';

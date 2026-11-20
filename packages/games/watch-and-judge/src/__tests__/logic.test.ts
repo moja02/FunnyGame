@@ -194,4 +194,52 @@ describe('WatchAndJudgeLogic - Specification Compliance & Scoring', () => {
     const tauntHigh = getTaunt(6000, 28);
     expect(typeof tauntHigh).toBe('string');
   });
+
+  it('guarantees 100% human-distinguishable visual changes across 500 generated rounds', () => {
+    for (let seed = 1; seed <= 50; seed++) {
+      const rng = createRng(seed);
+      for (const stage of [1, 2, 5, 7, 10, 15, 26, 36, 46, 51]) {
+        const cfg = watchAndJudgeLogic.stageConfig(stage);
+        const q = watchAndJudgeLogic.generate(rng, cfg, 0);
+
+        for (const round of q.payload.rounds) {
+          if (round.isNoChange) {
+            expect(round.validTargetIndices.length).toBe(0);
+            // Verify scenes are identical
+            for (let i = 0; i < 25; i++) {
+              const a = round.sceneA[i];
+              const b = round.sceneB[i];
+              expect(Boolean(a)).toBe(Boolean(b));
+              if (a && b) {
+                expect(a.shape).toBe(b.shape);
+                expect(a.colorName).toBe(b.colorName);
+                expect(a.rotationDeg).toBe(b.rotationDeg);
+                expect(a.scale).toBe(b.scale);
+              }
+            }
+          } else {
+            // Must have valid targets
+            expect(round.validTargetIndices.length).toBeGreaterThan(0);
+
+            // Verify that for EVERY target in validTargetIndices, there is an unmistakable visual change
+            for (const targetIdx of round.validTargetIndices) {
+              const a = round.sceneA[targetIdx];
+              const b = round.sceneB[targetIdx];
+
+              const visualDiffExists =
+                (!a && b) ||
+                (a && !b) ||
+                (a && b && a.shape !== b.shape) ||
+                (a && b && a.textColorClass !== b.textColorClass) ||
+                (a && b && a.colorName !== b.colorName) ||
+                (a && b && a.rotationDeg !== b.rotationDeg) ||
+                (a && b && a.scale !== b.scale);
+
+              expect(visualDiffExists).toBe(true);
+            }
+          }
+        }
+      }
+    }
+  });
 });
