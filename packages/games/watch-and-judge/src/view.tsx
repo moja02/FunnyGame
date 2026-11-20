@@ -705,9 +705,9 @@ export const WatchAndJudgeView: React.FC<
         </div>
       </div>
 
-      {/* Bottom "No Change" Button Area */}
-      <div className="w-full max-w-[420px] px-1 pb-1">
-        {payload.hasNoChangeButton ? (
+      {/* Bottom "No Change" Button (Stages 10+) */}
+      {payload.hasNoChangeButton && (
+        <div className="w-full max-w-[420px] px-1 pb-1">
           <button
             onPointerDown={(e) => {
               (e.currentTarget as HTMLElement)?.blur();
@@ -723,18 +723,8 @@ export const WatchAndJudgeView: React.FC<
             <span>[ ما في تغيير ✓ ]</span>
             <span className="text-xs text-slate-400">(مسافة / 0)</span>
           </button>
-        ) : (
-          <div className="w-full py-2.5 px-3 rounded-xl border border-slate-800/80 bg-slate-900/40 text-center flex items-center justify-between text-slate-500 text-xs">
-            <span className="flex items-center gap-1.5 font-bold">
-              <span>🔒</span>
-              <span>زر [ ما في تغيير ] يُفتح في المرحلة 10</span>
-            </span>
-            <span className="text-[11px] text-amber-400/80 font-medium">
-              يوجد دائماً شكل تغيّر! 🔍
-            </span>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Footer Guidance */}
       <div className="w-full text-center pb-1">
