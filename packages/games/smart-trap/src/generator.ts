@@ -22,29 +22,45 @@ export function getStageRules(stage: number): StageRules {
     stage !== 46;
 
   let categoryAr = 'ألغاز خدعة كلاسيكية 🧠';
-  if (stage >= 56) categoryAr = 'شروط مركبة وتحدي متقدم ⚡';
-  else if (stage >= 46) categoryAr = 'جداول منطقية متقاطعة 📋';
-  else if (stage >= 36) categoryAr = 'الصادق والكاذب (3 أشخاص) 👥';
-  else if (stage >= 26) categoryAr = 'ترتيب واستبعاد 📏';
-  else if (stage >= 21) categoryAr = 'يقين واحتمالات في الظلام 🧦';
-  else if (stage >= 15) categoryAr = 'صادق وكاذب 🎭';
-  else if (stage >= 12) categoryAr = 'أعمار وعلاقات 🎂';
-  else if (stage >= 7) categoryAr = 'زمن ومعدلات وتضاعف ⏱️';
-  else if (stage >= 5) categoryAr = 'سباق ومواقع 🏃‍♂️';
+  let baseTimeSec = 25.0;
 
-  const u = Math.max(0.40, 1.0 - 0.012 * (stage - 1));
-  const cLogic = 25.0;
-  const extraTimeSec = isBreathing ? 4.0 : 0.0;
+  if (stage >= 56) {
+    categoryAr = 'شروط مركبة وتحدي متقدم ⚡';
+    baseTimeSec = 55.0;
+  } else if (stage >= 46) {
+    categoryAr = 'جداول منطقية متقاطعة 📋';
+    baseTimeSec = 50.0;
+  } else if (stage >= 36) {
+    categoryAr = 'الصادق والكاذب (3 أشخاص) 👥';
+    baseTimeSec = 45.0;
+  } else if (stage >= 26) {
+    categoryAr = 'ترتيب واستبعاد 📏';
+    baseTimeSec = 40.0;
+  } else if (stage >= 21) {
+    categoryAr = 'يقين واحتمالات في الظلام 🧦';
+    baseTimeSec = 35.0;
+  } else if (stage >= 15) {
+    categoryAr = 'صادق وكاذب 🎭';
+    baseTimeSec = 35.0;
+  } else if (stage >= 12) {
+    categoryAr = 'أعمار وعلاقات 🎂';
+    baseTimeSec = 32.0;
+  } else if (stage >= 7) {
+    categoryAr = 'زمن ومعدلات وتضاعف ⏱️';
+    baseTimeSec = 30.0;
+  } else if (stage >= 5) {
+    categoryAr = 'سباق ومواقع 🏃‍♂️';
+    baseTimeSec = 28.0;
+  }
 
-  // round to nearest 0.5s, minimum 10.0s floor
-  const rawTime = u * cLogic + extraTimeSec;
-  const timeLimitSec = Math.max(10.0, Math.round(rawTime * 2) / 2);
+  const extraTimeSec = isBreathing ? 4.0 : isBoss ? 3.0 : 0.0;
+  const timeLimitSec = baseTimeSec + extraTimeSec;
 
   return {
     categoryAr,
     isBoss,
     isBreathing,
-    cLogic,
+    cLogic: baseTimeSec,
     extraTimeSec,
     timeLimitSec
   };

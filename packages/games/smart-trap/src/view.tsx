@@ -23,12 +23,13 @@ export const SmartTrapView: React.FC<
   const [remainingTimeMs, setRemainingTimeMs] = useState<number>(payload.timeLimitMs);
   const [showExplanation, setShowExplanation] = useState<boolean>(false);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
+  const [heartsLeft, setHeartsLeft] = useState<number>(3);
 
   const isResolvedRef = useRef<boolean>(false);
   const startTimeRef = useRef<number>(0);
-  const timerAnimFrameRef = useRef<number | null>(null);
   const noticeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const comboStreakRef = useRef<number>(0);
+  const pendingAnswerRef = useRef<SmartTrapAnswerInput | null>(null);
 
   // Show a temporary banner notification
   const showNotice = useCallback((msg: string) => {
@@ -60,9 +61,15 @@ export const SmartTrapView: React.FC<
     setEliminatedChoiceIds([]);
     setHintUsed(false);
     setShowExplanation(false);
-    setRemainingTimeMs(payload.timeLimitMs);
+    pendingAnswerRef.current = null;
     isResolvedRef.current = false;
     startTimeRef.current = Date.now();
+    setRemainingTimeMs(payload.timeLimitMs);
+
+    // Reset hearts to 3 at beginning of run
+    if (question.stage === 1 && question.index === 0) {
+      setHeartsLeft(3);
+    }
 
     // Replenish 1 hint on each new stage (or +1 on boss stages)
     if (question.index === 0) {
@@ -77,51 +84,53 @@ export const SmartTrapView: React.FC<
     }
   }, [question.index, question.stage, payload, showNotice]);
 
-  // Handle Question Countdown Timer
+  // Smooth, reliable Question Countdown Timer
   useEffect(() => {
     if (!introDismissed || isResolvedRef.current) return;
 
     startTimeRef.current = Date.now();
     const duration = payload.timeLimitMs;
 
-    const tick = () => {
+    const timerId = setInterval(() => {
       if (isResolvedRef.current) return;
       const elapsed = Date.now() - startTimeRef.current;
       const left = Math.max(0, duration - elapsed);
       setRemainingTimeMs(left);
 
       if (left <= 0) {
-        // Time expired!
+        // Time expired! Freeze timer, reveal explanation and wait for player to proceed
         isResolvedRef.current = true;
+        clearInterval(timerId);
         sound.wrong();
         haptics.error();
         comboStreakRef.current = 0;
         setShowExplanation(true);
+        setHeartsLeft((h) => Math.max(0, h - 1));
         showNotice('انتهى الوقت! طحت في الفخ ⏱️');
 
-        setTimeout(() => {
-          onAnswer({
-            choiceIndex: -1,
-            isCorrect: false,
-            durationMs: duration,
-            hintUsed,
-            totalPoints: 0
-          });
-        }, 1500);
-      } else {
-        timerAnimFrameRef.current = requestAnimationFrame(tick);
+        pendingAnswerRef.current = {
+          choiceIndex: -1,
+          isCorrect: false,
+          durationMs: duration,
+          hintUsed,
+          totalPoints: 0
+        };
       }
-    };
+    }, 50);
 
-    timerAnimFrameRef.current = requestAnimationFrame(tick);
+    return () => clearInterval(timerId);
+  }, [introDismissed, question.index, question.stage, payload.timeLimitMs, hintUsed, showNotice]);
 
-    return () => {
-      if (timerAnimFrameRef.current) {
-        cancelAnimationFrame(timerAnimFrameRef.current);
-        timerAnimFrameRef.current = null;
-      }
-    };
-  }, [introDismissed, payload.timeLimitMs, hintUsed, showNotice, onAnswer]);
+  // Proceed to next question manually when player taps the button
+  const handleProceedNext = useCallback(() => {
+    if (!pendingAnswerRef.current) return;
+    const ans = pendingAnswerRef.current;
+    pendingAnswerRef.current = null;
+    setShowExplanation(false);
+    sound.tap();
+    haptics.light();
+    onAnswer(ans);
+  }, [onAnswer]);
 
   // Smart Hint: Eliminates 2 wrong choices, ALWAYS including the trap choice!
   const handleUseHint = useCallback(() => {
@@ -208,6 +217,7 @@ export const SmartTrapView: React.FC<
         haptics.error();
         comboStreakRef.current = 0;
         setShowExplanation(true);
+        setHeartsLeft((h) => Math.max(0, h - 1));
 
         if (chosen.isTrap) {
           showNotice('طحت في الفخ البديهي! 🪤');
@@ -215,16 +225,14 @@ export const SmartTrapView: React.FC<
           showNotice('إجابة غير صحيحة! 💔');
         }
 
-        // Display single-line explanation for 1.5s
-        setTimeout(() => {
-          onAnswer({
-            choiceIndex: choiceId,
-            isCorrect: false,
-            durationMs,
-            hintUsed,
-            totalPoints: 0
-          });
-        }, 1500);
+        // Store pending answer and let player read explanation at leisure, then click Next
+        pendingAnswerRef.current = {
+          choiceIndex: choiceId,
+          isCorrect: false,
+          durationMs,
+          hintUsed,
+          totalPoints: 0
+        };
       }
     },
     [
@@ -241,9 +249,17 @@ export const SmartTrapView: React.FC<
     ]
   );
 
-  // Keyboard navigation: 1, 2, 3, 4 for choices, H for hint, Space/Enter for intro
+  // Keyboard navigation: 1, 2, 3, 4 for choices, H for hint, Space/Enter for Next / Intro
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (showExplanation) {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          handleProceedNext();
+        }
+        return;
+      }
+
       if (!introDismissed) {
         if (e.key === ' ' || e.key === 'Enter') {
           e.preventDefault();
@@ -261,16 +277,23 @@ export const SmartTrapView: React.FC<
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [introDismissed, handleDismissIntro, handleSelectChoice, handleUseHint]);
+  }, [
+    showExplanation,
+    introDismissed,
+    handleDismissIntro,
+    handleProceedNext,
+    handleSelectChoice,
+    handleUseHint
+  ]);
 
-  // Calculate timer ratio for color
-  const timerRatio = Math.max(0, Math.min(1.0, remainingTimeMs / payload.timeLimitMs));
+  // Calculate timer percentage for fluid smooth bar
+  const timerPercentage = Math.max(0, Math.min(100, (remainingTimeMs / payload.timeLimitMs) * 100));
   const timerColor =
-    timerRatio > 0.5
-      ? 'bg-emerald-500'
-      : timerRatio > 0.25
-      ? 'bg-amber-400'
-      : 'bg-rose-500';
+    timerPercentage > 50
+      ? 'bg-gradient-to-r from-teal-400 to-emerald-400'
+      : timerPercentage > 25
+      ? 'bg-gradient-to-r from-amber-500 to-yellow-400'
+      : 'bg-gradient-to-r from-red-600 to-rose-500 animate-pulse';
 
   const questionProgress = (question.index % 5) + 1;
 
@@ -345,10 +368,10 @@ export const SmartTrapView: React.FC<
           {/* Hint Button */}
           <button
             onClick={handleUseHint}
-            disabled={hintsAvailable <= 0 || !introDismissed || locked || eliminatedChoiceIds.length > 0}
+            disabled={hintsAvailable <= 0 || !introDismissed || locked || eliminatedChoiceIds.length > 0 || showExplanation}
             title="يحذف خيارين خاطئين بما في ذلك الفخ البديهي!"
             className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition-all ${
-              hintsAvailable > 0 && eliminatedChoiceIds.length === 0
+              hintsAvailable > 0 && eliminatedChoiceIds.length === 0 && !showExplanation
                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 active:scale-95 shadow-[0_0_10px_rgba(245,158,11,0.2)] cursor-pointer'
                 : 'bg-slate-800/40 text-slate-600 border-slate-800 cursor-not-allowed opacity-50'
             }`}
@@ -357,11 +380,11 @@ export const SmartTrapView: React.FC<
           </button>
         </div>
 
-        {/* Linear Timer Bar */}
-        <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700/60 my-0.5">
+        {/* Fluid Linear Timer Bar */}
+        <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-white/10 my-1 relative">
           <div
-            className={`h-full ${timerColor} transition-all duration-100 ease-linear`}
-            style={{ width: `${Math.round(timerRatio * 100)}%` }}
+            className={`h-full ${timerColor} transition-[width] duration-75 ease-linear rounded-full`}
+            style={{ width: `${timerPercentage}%` }}
           />
         </div>
 
@@ -385,11 +408,26 @@ export const SmartTrapView: React.FC<
             {payload.promptAr}
           </p>
 
-          {/* Logical Explanation Toast (shown for 1.5s on error/timeout) */}
+          {/* Logical Explanation Box with Manual Next Question button */}
           {showExplanation && (
-            <div className="mt-3 p-2.5 w-full bg-amber-500/20 border border-amber-400/60 rounded-xl text-xs sm:text-sm font-black text-amber-200 animate-fade-in flex items-center gap-1.5 text-right">
-              <span className="text-base">💡</span>
-              <span className="flex-1 leading-normal">{payload.explanationAr}</span>
+            <div className="mt-3 p-3 w-full bg-amber-500/15 border-2 border-amber-400/80 rounded-2xl text-xs sm:text-sm font-bold text-amber-200 animate-fade-in flex flex-col sm:flex-row items-center justify-between gap-3 text-right shadow-xl">
+              <div className="flex items-start gap-2 flex-1">
+                <span className="text-2xl leading-none">💡</span>
+                <div className="flex flex-col text-right">
+                  <span className="text-xs font-black text-amber-300">التفسير المنطقي:</span>
+                  <span className="leading-relaxed text-amber-100 text-xs sm:text-sm">
+                    {payload.explanationAr}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleProceedNext}
+                className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 active:scale-95 text-slate-950 font-black rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <span>{heartsLeft <= 0 ? 'عرض النتيجة' : 'السؤال التالي'}</span>
+                <span className="text-base font-black">◀</span>
+              </button>
             </div>
           )}
         </div>
