@@ -31,6 +31,7 @@ import '@funnygame/game-dont-tap';
 import '@funnygame/game-follow-pattern';
 import '@funnygame/game-math-bridge';
 import '@funnygame/game-moving-maze';
+import '@funnygame/game-tile-match';
 import '@funnygame/game-number-hunt';
 import '@funnygame/game-odd-one-out';
 import '@funnygame/game-watch-and-judge';
@@ -68,6 +69,30 @@ const GAME_METADATA: Record<
       'انتبه للجدران المتبدلة التي تفتح وتغلق بانتظام (أو فجأة في المراحل المتقدمة).',
       'تجنب الفخاخ الحمراء حتى لا تعود لنقطة البداية، واجمع المفاتيح بالترتيب.',
       'حافظ على رصيد خطواتك قبل أن ينفد الوقت المتاح!'
+    ]
+  },
+  'tile-match': {
+    title: 'مطابقة الطبقات',
+    abilityName: 'الذكاء والمنطق 💡',
+    icon: '🍓',
+    abilityBadgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    rules: [
+      'انقل البطاقات المكشوفة إلى شريط التجميع المكون من 7 خانات.',
+      'طابق 3 بطاقات من نفس النوع لتفريغها فوراً وكسب النقاط.',
+      'احذر من امتلاء الخانات بالكامل دون تحقيق أي مطابقة ثلاثية.',
+      'استخدم أدوات التراجع، وسحب البطاقات، والخلط عند الحاجة!'
+    ]
+  },
+  'tile_match': {
+    title: 'مطابقة الطبقات',
+    abilityName: 'الذكاء والمنطق 💡',
+    icon: '🍓',
+    abilityBadgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    rules: [
+      'انقل البطاقات المكشوفة إلى شريط التجميع المكون من 7 خانات.',
+      'طابق 3 بطاقات من نفس النوع لتفريغها فوراً وكسب النقاط.',
+      'احذر من امتلاء الخانات بالكامل دون تحقيق أي مطابقة ثلاثية.',
+      'استخدم أدوات التراجع، وسحب البطاقات، والخلط عند الحاجة!'
     ]
   },
   'watch-and-judge': {
@@ -518,7 +543,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       gameId === 'watch-and-judge' ||
       gameId === 'watch_and_judge' ||
       gameId === 'moving-maze' ||
-      gameId === 'moving_maze'
+      gameId === 'moving_maze' ||
+      gameId === 'tile-match' ||
+      gameId === 'tile_match'
     );
     if (!hasIntroCard && !hasManualTimer) {
       startTimer();
@@ -828,7 +855,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             {gameId !== 'watch-and-judge' &&
               gameId !== 'watch_and_judge' &&
               gameId !== 'moving-maze' &&
-              gameId !== 'moving_maze' && (
+              gameId !== 'moving_maze' &&
+              gameId !== 'tile-match' &&
+              gameId !== 'tile_match' && (
                 <TimerBar remainingMs={remainingMs} totalMs={timeLimitMs} />
               )}
             <ComboMeter combo={combo} />

@@ -61,6 +61,14 @@ const readyGames = [
     color: 'from-blue-500/20 to-indigo-600/30 border-blue-500/40 text-blue-300'
   },
   {
+    id: 'tile-match',
+    title: 'مطابقة الطبقات',
+    ability: 'الذكاء والمنطق 💡',
+    icon: '🍓',
+    description: 'انقل البطاقات المكشوفة وطابق 3 فواكه في الشريط السفلي لتفريغ الطبقات ومسح اللوحة!',
+    color: 'from-amber-500/20 to-orange-600/30 border-amber-500/40 text-amber-300'
+  },
+  {
     id: 'dont-tap',
     title: 'لا تضغط!',
     ability: 'السرعة والتركيز ⚡',

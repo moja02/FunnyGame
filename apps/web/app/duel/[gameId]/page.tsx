@@ -16,6 +16,8 @@ export function generateStaticParams() {
     { gameId: 'watch_and_judge' },
     { gameId: 'moving-maze' },
     { gameId: 'moving_maze' },
+    { gameId: 'tile-match' },
+    { gameId: 'tile_match' },
     { gameId: 'color-trap' },
     { gameId: 'dont-tap' },
     { gameId: 'dont_tap' },

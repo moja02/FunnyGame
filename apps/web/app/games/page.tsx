@@ -224,6 +224,16 @@ const allGames: GameItem[] = [
     stages: '70+ مرحلة'
   },
   {
+    id: 'tile-match',
+    title: 'مطابقة الطبقات',
+    ability: 'logic',
+    abilityName: 'الذكاء والمنطق',
+    icon: '🍓',
+    description: 'انقل البطاقات المكشوفة وطابق 3 فواكه في الشريط السفلي لتفريغ الطبقات ومسح اللوحة.',
+    status: 'ready',
+    stages: '70+ مرحلة'
+  },
+  {
     id: 'heaviest-lightest',
     title: 'الأثقل والأخف',
     ability: 'logic',

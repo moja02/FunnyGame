@@ -35,6 +35,8 @@ const GAME_NAMES: Record<string, { title: string; ability: string; icon: string 
   'watch_and_judge': { title: 'شاهد واحكم', ability: 'الذاكرة والاستدعاء 🧠', icon: '👁️' },
   'moving-maze': { title: 'متاهة تتحرك', ability: 'الذكاء والمنطق 💡', icon: '🧭' },
   'moving_maze': { title: 'متاهة تتحرك', ability: 'الذكاء والمنطق 💡', icon: '🧭' },
+  'tile-match': { title: 'مطابقة الطبقات', ability: 'الذكاء والمنطق 💡', icon: '🍓' },
+  'tile_match': { title: 'مطابقة الطبقات', ability: 'الذكاء والمنطق 💡', icon: '🍓' },
   'dont-tap': { title: 'لا تضغط!', ability: 'السرعة والتركيز ⚡', icon: '🛑' },
   'dont_tap': { title: 'لا تضغط!', ability: 'السرعة والتركيز ⚡', icon: '🛑' },
   'odd-one-out': { title: 'الدخيل', ability: 'السرعة والتركيز ⚡', icon: '👁️' },
