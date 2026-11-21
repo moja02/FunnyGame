@@ -4,7 +4,7 @@ import type {
   SmartTrapQuestionPayload,
   PuzzleChoice
 } from './types.js';
-import { PUZZLE_TEMPLATES } from './templates.js';
+import { PUZZLE_TEMPLATES, type PuzzleTemplate } from './templates.js';
 import { INTRO_CARDS } from './content.js';
 
 /**
@@ -67,6 +67,101 @@ export function getStageRules(stage: number): StageRules {
 }
 
 /**
+ * Deterministic pseudo-random number generator for stage template planning.
+ * Uses SplitMix32 hash to produce consistent, well-distributed randomness from an integer seed.
+ */
+function createStageRand(seed: number): () => number {
+  let h = seed >>> 0;
+  return () => {
+    h = (h + 0x9e3779b9) >>> 0;
+    let z = h;
+    z = Math.imul(z ^ (z >>> 16), 0x85ebca6b) >>> 0;
+    z = Math.imul(z ^ (z >>> 13), 0xc2b2ae35) >>> 0;
+    z = (z ^ (z >>> 16)) >>> 0;
+    return (z >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Returns a plan of 5 distinct puzzle templates for the 5 questions of a stage.
+ * Guarantees NO duplicate templates within the same stage (0 to 4),
+ * prioritizing the newest unlocked tier while blending in previous categories for maximum variety.
+ */
+export function getStagePlan(stage: number): PuzzleTemplate[] {
+  const eligible = PUZZLE_TEMPLATES.filter((t) => t.minStage <= stage);
+  if (eligible.length <= 5) {
+    return eligible;
+  }
+
+  const rand = createStageRand(stage * 7919 + 1013);
+
+  // Separate into current tier (unlocked in latest 5 stages) and legacy pool
+  const minTierCutoff = Math.max(1, stage - 4);
+  const currentTier = eligible.filter((t) => t.minStage >= minTierCutoff);
+  const legacyTier = eligible.filter((t) => t.minStage < minTierCutoff);
+
+  const selected: PuzzleTemplate[] = [];
+  const selectedIds = new Set<string>();
+
+  function shuffle<T>(arr: T[]): T[] {
+    const copy = [...arr];
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      const tmp = copy[i]!;
+      copy[i] = copy[j]!;
+      copy[j] = tmp;
+    }
+    return copy;
+  }
+
+  const shuffledCurrent = shuffle(currentTier);
+  const shuffledLegacy = shuffle(legacyTier);
+
+  // Try to pick 3 from current tier and 2 from legacy tier
+  const targetCurrent = Math.min(3, shuffledCurrent.length);
+  for (const t of shuffledCurrent) {
+    if (selected.length < targetCurrent && !selectedIds.has(t.id)) {
+      selected.push(t);
+      selectedIds.add(t.id);
+    }
+  }
+
+  for (const t of shuffledLegacy) {
+    if (selected.length < 5 && !selectedIds.has(t.id)) {
+      selected.push(t);
+      selectedIds.add(t.id);
+    }
+  }
+
+  // Backfill up to 5 if needed
+  if (selected.length < 5) {
+    for (const t of shuffle(eligible)) {
+      if (selected.length >= 5) break;
+      if (!selectedIds.has(t.id)) {
+        selected.push(t);
+        selectedIds.add(t.id);
+      }
+    }
+  }
+
+  // Shuffle selected templates for varied question ordering
+  const finalPlan = shuffle(selected);
+
+  // Avoid identical template between the end of stage S-1 and start of stage S
+  if (stage > 1) {
+    const prevPlan = getStagePlan(stage - 1);
+    const lastPrevId = prevPlan[prevPlan.length - 1]?.id;
+    if (finalPlan[0]?.id === lastPrevId && finalPlan.length > 1) {
+      const temp = finalPlan[0]!;
+      finalPlan[0] = finalPlan[1]!;
+      finalPlan[1] = temp;
+    }
+  }
+
+  return finalPlan;
+}
+
+/**
  * Generates a single parametric question for Smart Trap.
  */
 export function generateSmartTrapQuestion(
@@ -75,28 +170,33 @@ export function generateSmartTrapQuestion(
   index: number
 ): SmartTrapQuestionPayload {
   const rules = getStageRules(stage);
+  const plan = getStagePlan(stage);
+  const template = plan[index % plan.length]!;
 
-  // Eligible templates: minStage <= stage
-  let eligible = PUZZLE_TEMPLATES.filter((t) => t.minStage <= stage);
-  if (eligible.length === 0) {
-    eligible = PUZZLE_TEMPLATES;
-  }
-
-  // Weight templates towards higher/newer ones for the stage
-  const sorted = [...eligible].sort((a, b) => b.minStage - a.minStage);
-  const topHalf = sorted.slice(0, Math.max(3, Math.ceil(sorted.length * 0.6)));
-
-  const template = topHalf[Math.floor(rng.next() * topHalf.length)]!;
   const instance = template.generate(rng, stage);
 
-  // Create 4 choices:
-  // 1 correct, 1 trap, 2 distractors
+  // Create 4 choices: 1 correct, 1 trap, 2 distractors
   const rawChoices = [
     { text: instance.correctAnswer, isCorrect: true, isTrap: false },
     { text: instance.trapAnswer, isCorrect: false, isTrap: true },
     { text: instance.distractors[0] || 'إجابة أخرى', isCorrect: false, isTrap: false },
     { text: instance.distractors[1] || 'غير محدد', isCorrect: false, isTrap: false }
   ];
+
+  // Guarantee 100% distinct choice texts across all 4 choices
+  const seenTexts = new Set<string>();
+  seenTexts.add(rawChoices[0]!.text);
+
+  for (let i = 1; i < rawChoices.length; i++) {
+    let t = rawChoices[i]!.text;
+    let counter = 1;
+    while (seenTexts.has(t)) {
+      t = `${rawChoices[i]!.text} (${counter})`;
+      counter++;
+    }
+    rawChoices[i]!.text = t;
+    seenTexts.add(t);
+  }
 
   // Shuffle choices with rng
   for (let i = rawChoices.length - 1; i > 0; i--) {

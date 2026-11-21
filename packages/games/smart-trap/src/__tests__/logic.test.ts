@@ -7,8 +7,10 @@ import {
 } from '../logic.js';
 import {
   generateSmartTrapQuestion,
-  getStageRules
+  getStageRules,
+  getStagePlan
 } from '../generator.js';
+import { PUZZLE_TEMPLATES } from '../templates.js';
 import { getTaunt } from '../content.js';
 
 describe('Smart Trap Logic', () => {
@@ -86,7 +88,45 @@ describe('Smart Trap Logic', () => {
           expect(payload.promptAr).toBeTruthy();
           expect(payload.explanationAr).toBeTruthy();
           expect(payload.categoryAr).toBeTruthy();
+
+          // Ensure all 4 choice texts are completely distinct
+          const choiceTexts = new Set(payload.choices.map((c) => c.text));
+          expect(choiceTexts.size).toBe(4);
         }
+      }
+    });
+
+    it('guarantees every single puzzle template generates valid instances with distinct choices', () => {
+      expect(PUZZLE_TEMPLATES.length).toBeGreaterThanOrEqual(50);
+      for (const template of PUZZLE_TEMPLATES) {
+        const rng = createRng(42);
+        const inst = template.generate(rng, template.minStage);
+        expect(inst.id).toBeTruthy();
+        expect(inst.promptAr.length).toBeGreaterThan(10);
+        expect(inst.correctAnswer).toBeTruthy();
+        expect(inst.trapAnswer).toBeTruthy();
+        expect(inst.correctAnswer).not.toBe(inst.trapAnswer);
+        expect(inst.distractors.length).toBeGreaterThanOrEqual(2);
+        expect(inst.explanationAr.length).toBeGreaterThan(10);
+      }
+    });
+
+    it('guarantees 100% unique puzzle templates across the 5 questions within every stage', () => {
+      for (let stage = 1; stage <= 50; stage++) {
+        const plan = getStagePlan(stage);
+        expect(plan.length).toBe(5);
+        const ids = new Set(plan.map((t) => t.id));
+        expect(ids.size).toBe(5); // Zero repetition in the 5 questions of the stage!
+      }
+    });
+
+    it('prevents immediate consecutive repetition across stage transitions', () => {
+      for (let stage = 1; stage < 30; stage++) {
+        const currentPlan = getStagePlan(stage);
+        const nextPlan = getStagePlan(stage + 1);
+        const lastOfCurrent = currentPlan[currentPlan.length - 1]!.id;
+        const firstOfNext = nextPlan[0]!.id;
+        expect(firstOfNext).not.toBe(lastOfCurrent);
       }
     });
   });
