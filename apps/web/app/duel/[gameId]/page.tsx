@@ -20,6 +20,8 @@ export function generateStaticParams() {
     { gameId: 'tile_match' },
     { gameId: 'smart-trap' },
     { gameId: 'smart_trap' },
+    { gameId: 'complete-sequence' },
+    { gameId: 'complete_sequence' },
     { gameId: 'color-trap' },
     { gameId: 'dont-tap' },
     { gameId: 'dont_tap' },

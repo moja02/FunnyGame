@@ -32,6 +32,7 @@ import '@funnygame/game-follow-pattern';
 import '@funnygame/game-math-bridge';
 import '@funnygame/game-moving-maze';
 import '@funnygame/game-smart-trap';
+import '@funnygame/game-complete-sequence';
 import '@funnygame/game-tile-match';
 import '@funnygame/game-number-hunt';
 import '@funnygame/game-odd-one-out';
@@ -118,6 +119,30 @@ const GAME_METADATA: Record<
       'احذر من خيار الفخ البديهي الذي يتبادر لذهنك أولاً!',
       'استخدم زر التلميح (💡) لحذف خيارين من بينهما الفخ حتماً.',
       'كل 5 إجابات صحيحة تنقلك لمرحلة أصعب وتكافئك بتلميح جديد!'
+    ]
+  },
+  'complete-sequence': {
+    title: 'أكمل المتتالية',
+    abilityName: 'الذكاء والمنطق 💡',
+    icon: '🔢',
+    abilityBadgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+    rules: [
+      'اكتشف القاعدة المنطقية الرابطة بين عناصر السلسلة (أرقام أو أشكال).',
+      'اختر العنصر الصحيح للمكان المجهول [ ? ] من الخيارات الأربعة.',
+      'انتبه للمتتاليات ذات الخانة الناقصة في المنتصف، والمتتاليات المتداخلة!',
+      'استخدم زر التلميح (💡) لكشف بداية القاعدة أو حذف خيارين خاطئين.'
+    ]
+  },
+  'complete_sequence': {
+    title: 'أكمل المتتالية',
+    abilityName: 'الذكاء والمنطق 💡',
+    icon: '🔢',
+    abilityBadgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+    rules: [
+      'اكتشف القاعدة المنطقية الرابطة بين عناصر السلسلة (أرقام أو أشكال).',
+      'اختر العنصر الصحيح للمكان المجهول [ ? ] من الخيارات الأربعة.',
+      'انتبه للمتتاليات ذات الخانة الناقصة في المنتصف، والمتتاليات المتداخلة!',
+      'استخدم زر التلميح (💡) لكشف بداية القاعدة أو حذف خيارين خاطئين.'
     ]
   },
   'watch-and-judge': {
@@ -572,7 +597,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       gameId === 'tile-match' ||
       gameId === 'tile_match' ||
       gameId === 'smart-trap' ||
-      gameId === 'smart_trap'
+      gameId === 'smart_trap' ||
+      gameId === 'complete-sequence' ||
+      gameId === 'complete_sequence'
     );
     if (!hasIntroCard && !hasManualTimer) {
       startTimer();
@@ -886,7 +913,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
               gameId !== 'tile-match' &&
               gameId !== 'tile_match' &&
               gameId !== 'smart-trap' &&
-              gameId !== 'smart_trap' && (
+              gameId !== 'smart_trap' &&
+              gameId !== 'complete-sequence' &&
+              gameId !== 'complete_sequence' && (
                 <TimerBar remainingMs={remainingMs} totalMs={timeLimitMs} />
               )}
             <ComboMeter combo={combo} />

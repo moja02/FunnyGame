@@ -244,6 +244,16 @@ const allGames: GameItem[] = [
     stages: '70+ مرحلة'
   },
   {
+    id: 'complete-sequence',
+    title: 'أكمل المتتالية',
+    ability: 'logic',
+    abilityName: 'الذكاء والمنطق',
+    icon: '🔢',
+    description: 'اكتشف القاعدة المنطقية بين العناصر (أرقام أو أشكال) واختر المكمل الناقص قبل نفاد الوقت!',
+    status: 'ready',
+    stages: '70+ مرحلة'
+  },
+  {
     id: 'heaviest-lightest',
     title: 'الأثقل والأخف',
     ability: 'logic',
