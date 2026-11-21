@@ -234,6 +234,16 @@ const allGames: GameItem[] = [
     stages: '70+ مرحلة'
   },
   {
+    id: 'smart-trap',
+    title: 'الفخ الذكي',
+    ability: 'logic',
+    abilityName: 'الذكاء والمنطق',
+    icon: '🪤',
+    description: 'أجب على الألغاز المنطقية الاستنباطية واكبح الاستجابة البديهية المتسرعة لتفادي الفخ!',
+    status: 'ready',
+    stages: '70+ مرحلة'
+  },
+  {
     id: 'heaviest-lightest',
     title: 'الأثقل والأخف',
     ability: 'logic',

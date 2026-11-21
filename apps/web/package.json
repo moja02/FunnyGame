@@ -20,6 +20,7 @@
     "@funnygame/game-moving-maze": "workspace:*",
     "@funnygame/game-number-hunt": "workspace:*",
     "@funnygame/game-odd-one-out": "workspace:*",
+    "@funnygame/game-smart-trap": "workspace:*",
     "@funnygame/game-tile-match": "workspace:*",
     "@funnygame/game-watch-and-judge": "workspace:*",
     "@funnygame/game-where-did-it-go": "workspace:*",

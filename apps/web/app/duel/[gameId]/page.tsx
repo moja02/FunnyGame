@@ -18,6 +18,8 @@ export function generateStaticParams() {
     { gameId: 'moving_maze' },
     { gameId: 'tile-match' },
     { gameId: 'tile_match' },
+    { gameId: 'smart-trap' },
+    { gameId: 'smart_trap' },
     { gameId: 'color-trap' },
     { gameId: 'dont-tap' },
     { gameId: 'dont_tap' },

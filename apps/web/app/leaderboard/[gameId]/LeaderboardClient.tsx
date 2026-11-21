@@ -37,6 +37,8 @@ const GAME_NAMES: Record<string, { title: string; ability: string; icon: string 
   'moving_maze': { title: 'متاهة تتحرك', ability: 'الذكاء والمنطق 💡', icon: '🧭' },
   'tile-match': { title: 'مطابقة الطبقات', ability: 'الذكاء والمنطق 💡', icon: '🍓' },
   'tile_match': { title: 'مطابقة الطبقات', ability: 'الذكاء والمنطق 💡', icon: '🍓' },
+  'smart-trap': { title: 'الفخ الذكي', ability: 'الذكاء والمنطق 💡', icon: '🪤' },
+  'smart_trap': { title: 'الفخ الذكي', ability: 'الذكاء والمنطق 💡', icon: '🪤' },
   'dont-tap': { title: 'لا تضغط!', ability: 'السرعة والتركيز ⚡', icon: '🛑' },
   'dont_tap': { title: 'لا تضغط!', ability: 'السرعة والتركيز ⚡', icon: '🛑' },
   'odd-one-out': { title: 'الدخيل', ability: 'السرعة والتركيز ⚡', icon: '👁️' },

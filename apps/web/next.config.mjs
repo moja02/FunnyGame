@@ -13,6 +13,7 @@ const nextConfig = {
     '@funnygame/game-moving-maze',
     '@funnygame/game-number-hunt',
     '@funnygame/game-odd-one-out',
+    '@funnygame/game-smart-trap',
     '@funnygame/game-tile-match',
     '@funnygame/game-watch-and-judge',
     '@funnygame/game-where-did-it-go'

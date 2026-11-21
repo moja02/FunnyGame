@@ -31,6 +31,7 @@ import '@funnygame/game-dont-tap';
 import '@funnygame/game-follow-pattern';
 import '@funnygame/game-math-bridge';
 import '@funnygame/game-moving-maze';
+import '@funnygame/game-smart-trap';
 import '@funnygame/game-tile-match';
 import '@funnygame/game-number-hunt';
 import '@funnygame/game-odd-one-out';
@@ -93,6 +94,30 @@ const GAME_METADATA: Record<
       'طابق 3 بطاقات من نفس النوع لتفريغها فوراً وكسب النقاط.',
       'احذر من امتلاء الخانات بالكامل دون تحقيق أي مطابقة ثلاثية.',
       'استخدم أدوات التراجع، وسحب البطاقات، والخلط عند الحاجة!'
+    ]
+  },
+  'smart-trap': {
+    title: 'الفخ الذكي',
+    abilityName: 'الذكاء والمنطق 💡',
+    icon: '🪤',
+    abilityBadgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    rules: [
+      'اقرأ اللغز المنطقي بعناية وفكك المعطيات قبل أن تجيب.',
+      'احذر من خيار الفخ البديهي الذي يتبادر لذهنك أولاً!',
+      'استخدم زر التلميح (💡) لحذف خيارين من بينهما الفخ حتماً.',
+      'كل 5 إجابات صحيحة تنقلك لمرحلة أصعب وتكافئك بتلميح جديد!'
+    ]
+  },
+  'smart_trap': {
+    title: 'الفخ الذكي',
+    abilityName: 'الذكاء والمنطق 💡',
+    icon: '🪤',
+    abilityBadgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    rules: [
+      'اقرأ اللغز المنطقي بعناية وفكك المعطيات قبل أن تجيب.',
+      'احذر من خيار الفخ البديهي الذي يتبادر لذهنك أولاً!',
+      'استخدم زر التلميح (💡) لحذف خيارين من بينهما الفخ حتماً.',
+      'كل 5 إجابات صحيحة تنقلك لمرحلة أصعب وتكافئك بتلميح جديد!'
     ]
   },
   'watch-and-judge': {
@@ -545,7 +570,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       gameId === 'moving-maze' ||
       gameId === 'moving_maze' ||
       gameId === 'tile-match' ||
-      gameId === 'tile_match'
+      gameId === 'tile_match' ||
+      gameId === 'smart-trap' ||
+      gameId === 'smart_trap'
     );
     if (!hasIntroCard && !hasManualTimer) {
       startTimer();
@@ -857,7 +884,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
               gameId !== 'moving-maze' &&
               gameId !== 'moving_maze' &&
               gameId !== 'tile-match' &&
-              gameId !== 'tile_match' && (
+              gameId !== 'tile_match' &&
+              gameId !== 'smart-trap' &&
+              gameId !== 'smart_trap' && (
                 <TimerBar remainingMs={remainingMs} totalMs={timeLimitMs} />
               )}
             <ComboMeter combo={combo} />

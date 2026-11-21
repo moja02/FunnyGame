@@ -69,6 +69,14 @@ const readyGames = [
     color: 'from-amber-500/20 to-orange-600/30 border-amber-500/40 text-amber-300'
   },
   {
+    id: 'smart-trap',
+    title: 'الفخ الذكي',
+    ability: 'الذكاء والمنطق 💡',
+    icon: '🪤',
+    description: 'أجب على الألغاز المنطقية الاستنباطية واكبح الاستجابة البديهية المتسرعة لتفادي الفخ!',
+    color: 'from-amber-500/20 to-orange-600/30 border-amber-500/40 text-amber-300'
+  },
+  {
     id: 'dont-tap',
     title: 'لا تضغط!',
     ability: 'السرعة والتركيز ⚡',
