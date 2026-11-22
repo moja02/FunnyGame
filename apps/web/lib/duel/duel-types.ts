@@ -20,6 +20,7 @@ export interface DuelPlayer {
   avatar: string;
   cityName?: string;
   isHost: boolean;
+  isGuest?: boolean;
 }
 
 export interface DuelDraftState {

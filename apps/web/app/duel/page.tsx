@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { BottomNav } from '../components/BottomNav';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -22,6 +22,7 @@ import {
   subscribeToDuelRoom,
   getDuelRoomLocal,
   recordRoundScore,
+  normalizeRoomCode,
 } from '@/lib/duel/duel-service';
 
 const TOURNAMENT_GAMES = [
@@ -41,6 +42,7 @@ const TOURNAMENT_GAMES = [
 ];
 
 function DuelTournamentContent() {
+  const router = useRouter();
   const { profile } = useAuth();
   const searchParams = useSearchParams();
 
@@ -59,6 +61,9 @@ function DuelTournamentContent() {
   const [timeLeft, setTimeLeft] = useState<number>(15);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Auto-launch countdown for live round
+  const [autoLaunchCount, setAutoLaunchCount] = useState<number | null>(null);
+
   // Player identity
   const currentPlayer: DuelPlayer = useMemo(
     () => ({
@@ -67,6 +72,7 @@ function DuelTournamentContent() {
       avatar: profile.avatar,
       cityName: profile.cityName,
       isHost: true,
+      isGuest: profile.isGuest,
     }),
     [profile]
   );
@@ -79,10 +85,18 @@ function DuelTournamentContent() {
   useEffect(() => {
     const queryRoom = searchParams.get('room');
     if (queryRoom) {
-      const code = queryRoom.trim().toUpperCase();
+      const code = normalizeRoomCode(queryRoom);
+      if (profile.isGuest) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('fg_pending_duel_invite', code);
+        }
+        setJoinError(`تم استلام دعوتك للغرفة (${code})! يرجى تسجيل الدخول بحسابك أولاً للمشاركة.`);
+        return;
+      }
+
       setIsJoining(true);
       setJoinError(null);
-      joinDuelRoom(code, { ...currentPlayer, isHost: false }, 5000)
+      joinDuelRoom(code, { ...currentPlayer, isHost: false }, 6000)
         .then((joined) => {
           if (joined) {
             setRoom(joined);
@@ -102,7 +116,7 @@ function DuelTournamentContent() {
           setIsJoining(false);
         });
     }
-  }, [searchParams, currentPlayer]);
+  }, [searchParams, currentPlayer, profile.isGuest]);
 
   // 2. Real-time Subscription to active room
   useEffect(() => {
@@ -145,9 +159,52 @@ function DuelTournamentContent() {
     };
   }, [room, isMyTurn, mySide]);
 
+  // 4. Auto-launch countdown for live round (jumps straight into the game!)
+  useEffect(() => {
+    if (room?.status !== 'PLAYING_ROUND') {
+      setAutoLaunchCount(null);
+      return;
+    }
+    const cur = room.rounds[room.currentRoundIndex];
+    if (!cur || !cur.gameId) return;
+
+    const mySubmitted = mySide === 'host'
+      ? cur.hostTimeMs > 0 || cur.hostRawScore > 0
+      : cur.guestTimeMs > 0 || cur.guestRawScore > 0;
+
+    if (mySubmitted) {
+      setAutoLaunchCount(null);
+      return;
+    }
+
+    // 3-second automatic countdown into game
+    setAutoLaunchCount(3);
+    const interval = setInterval(() => {
+      setAutoLaunchCount((prev) => {
+        if (prev === null) return null;
+        if (prev <= 1) {
+          clearInterval(interval);
+          const path = typeof window !== 'undefined' ? window.location.pathname : '';
+          const basePrefix = path.includes('/FunnyGame') ? '/FunnyGame' : '';
+          router.push(
+            `${basePrefix}/play/${cur.gameId}?mode=duel&roomId=${room.roomId}&round=${cur.roundOrder}&seed=${cur.seed}&player=${mySide}`
+          );
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [room?.status, room?.currentRoundIndex, mySide, router]);
+
   // Action: Create Room
   const handleCreateRoom = () => {
     setJoinError(null);
+    if (profile.isGuest) {
+      setJoinError('يجب تسجيل الدخول بحسابك أولاً لإنشاء غرفة تحدي.');
+      return;
+    }
     const newRoom = createDuelRoom(selectedMode, selectedSize, currentPlayer);
     setRoom(newRoom);
   };
@@ -155,15 +212,20 @@ function DuelTournamentContent() {
   // Action: Join Room
   const handleJoinRoom = async () => {
     setJoinError(null);
-    const code = joinCodeInput.trim().toUpperCase();
+    const code = normalizeRoomCode(joinCodeInput);
     if (!code) {
-      setJoinError('يرجى كتابة رمز الغرفة (مثال: LY-XXXX)');
+      setJoinError('يرجى كتابة رمز الغرفة (مثال: LY-XXXX أو الكود المباشر)');
+      return;
+    }
+
+    if (profile.isGuest) {
+      setJoinError('يجب تسجيل الدخول بحسابك أولاً للمشاركة في بطولة التحدي الثنائي.');
       return;
     }
 
     setIsJoining(true);
     try {
-      const joined = await joinDuelRoom(code, { ...currentPlayer, isHost: false }, 5000);
+      const joined = await joinDuelRoom(code, { ...currentPlayer, isHost: false }, 6000);
       if (joined) {
         setRoom(joined);
       } else {
@@ -239,6 +301,57 @@ function DuelTournamentContent() {
     const updated = rematchDuelRoom(room);
     setRoom(updated);
   };
+
+  // -------------------------------------------------------------
+  // VIEW: REGISTERED PLAYERS ONLY CHECK
+  // -------------------------------------------------------------
+  if (profile.isGuest) {
+    return (
+      <main className="flex-1 flex flex-col p-4 select-none pb-24 max-w-[480px] w-full mx-auto justify-between min-h-screen">
+        <div>
+          <div className="flex items-center justify-between py-2 border-b border-white/10 mb-6">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">⚔️</span>
+              <h1 className="text-xl font-black text-white">بطولة التحدي الثنائي</h1>
+            </div>
+            <Link href="/" className="text-xs text-slate-400 hover:text-white underline">
+              الرئيسية ✖
+            </Link>
+          </div>
+
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-500/10 via-rose-500/10 to-slate-900 border-2 border-amber-400/50 shadow-2xl text-center mb-6">
+            <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-400/20 border-2 border-amber-400 flex items-center justify-center text-4xl mb-4 shadow-[0_0_25px_rgba(251,191,36,0.3)] animate-pulse">
+              🔒
+            </div>
+            <div className="px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs inline-block mb-3">
+              مخصص للمستخدمين المسجلين فقط
+            </div>
+            <h2 className="text-xl font-black text-white mb-2">سجّل بحسابك أولاً!</h2>
+            <p className="text-xs text-slate-300 leading-relaxed max-w-xs mx-auto mb-6">
+              للمشاركة في بطولة التحدي الثنائي 1v1 وحفظ انتصاراتك في صدارة الأبطال، يجب تسجيل الدخول بحسابك أولاً، ويجب أن يكون صديقك مسجلاً أيضاً للمشاركة معك.
+            </p>
+
+            <Link
+              href="/profile"
+              className="w-full py-3.5 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl active:scale-98 transition-all flex items-center justify-center gap-2 mb-3 cursor-pointer"
+            >
+              <span>تسجيل الدخول / إنشاء حساب</span>
+              <span>⚡</span>
+            </Link>
+
+            <Link
+              href="/"
+              className="w-full py-2.5 bg-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs rounded-xl transition-all flex items-center justify-center"
+            >
+              الرجوع للصفحة الرئيسية
+            </Link>
+          </div>
+        </div>
+
+        <BottomNav />
+      </main>
+    );
+  }
 
   // -------------------------------------------------------------
   // VIEW: LOBBY
@@ -364,10 +477,10 @@ function DuelTournamentContent() {
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="LY-XXXX"
+                placeholder="LY-XXXX أو الكود المباشر"
                 value={joinCodeInput}
                 onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-                maxLength={8}
+                maxLength={30}
                 disabled={isJoining}
                 className="flex-1 bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-center text-sm font-black text-amber-300 placeholder:text-slate-600 focus:outline-none focus:border-amber-400 uppercase tracking-widest disabled:opacity-50"
               />
@@ -637,6 +750,25 @@ function DuelTournamentContent() {
     const curRound = room.rounds[room.currentRoundIndex];
     const game = TOURNAMENT_GAMES.find((g) => g.id === curRound?.gameId);
     const pickerName = curRound?.pickedBy === 'host' ? room.host.nickname : (room.guest?.nickname || 'الخصم');
+    const path = typeof window !== 'undefined' ? window.location.pathname : '';
+    const basePrefix = path.includes('/FunnyGame') ? '/FunnyGame' : '';
+    const targetPlayUrl = curRound
+      ? `${basePrefix}/play/${curRound.gameId}?mode=duel&roomId=${room.roomId}&round=${curRound.roundOrder}&seed=${curRound.seed}&player=${mySide}`
+      : '';
+
+    const myScoreSubmitted = curRound
+      ? mySide === 'host'
+        ? curRound.hostTimeMs > 0 || curRound.hostRawScore > 0
+        : curRound.guestTimeMs > 0 || curRound.guestRawScore > 0
+      : false;
+
+    const myScore = curRound
+      ? mySide === 'host'
+        ? curRound.hostRawScore
+        : curRound.guestRawScore
+      : 0;
+
+    const opponentName = isHost ? (room.guest?.nickname || 'الخصم') : room.host.nickname;
 
     // Local mode test play trigger (allows user to enter round scores in pass & play)
     const handleLocalPlayerScore = (playerSide: PlayerSide, score: number, timeSec: number) => {
@@ -662,36 +794,67 @@ function DuelTournamentContent() {
             <span className="text-xs text-slate-400 font-mono">الغرفة: {room.roomId}</span>
           </div>
 
-          {/* Round Card */}
-          <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-950 border-2 border-indigo-500/40 shadow-2xl text-center mb-6">
-            <div className="text-5xl mb-3">{game?.icon || '🎮'}</div>
-            <div className="text-[10px] font-black text-amber-300 uppercase tracking-widest mb-1">
-              اختيار: {pickerName} {curRound?.pickedBy === 'host' ? '🔵' : '🔴'}
-            </div>
-            <h2 className="text-2xl font-black text-white">{game?.title}</h2>
-            <p className="text-xs text-slate-300 mt-1">{game?.ability}</p>
-
-            <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-around text-xs text-slate-300">
-              <div>
-                <div className="text-[10px] text-slate-400">بذرة موحدة</div>
-                <div className="font-mono font-black text-amber-300">#{curRound?.seed}</div>
+          {/* If current player already finished their round, show waiting for opponent */}
+          {myScoreSubmitted ? (
+            <div className="p-6 rounded-3xl bg-slate-900/90 border-2 border-emerald-400/50 shadow-2xl text-center mb-6">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-400/20 border border-emerald-400 flex items-center justify-center text-4xl mb-3 animate-pulse">
+                ✅
               </div>
-              <div className="h-6 w-px bg-white/10" />
-              <div>
-                <div className="text-[10px] text-slate-400">بونص الفوز</div>
-                <div className="font-black text-emerald-400">+200 نقطة</div>
+              <h2 className="text-xl font-black text-white mb-1">أنهيت جولتك بنجاح!</h2>
+              <div className="text-3xl font-black text-emerald-300 font-mono my-2">
+                {myScore.toLocaleString()} <span className="text-xs text-slate-400 font-normal">نقطة</span>
               </div>
+              <div className="p-3.5 mt-3 rounded-2xl bg-slate-950/70 border border-amber-400/30 text-xs text-amber-300 font-bold flex items-center justify-center gap-2 animate-pulse">
+                <span>⏳</span>
+                <span>في انتظار إنهاء {opponentName} لجولته...</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-3">
+                متصل بالسيرفر • ستظهر مقارنة النتائج تلقائياً فور انتهائه.
+              </p>
             </div>
-          </div>
+          ) : (
+            <>
+              {/* Round Card & Auto Launcher */}
+              <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-950 border-2 border-amber-400/60 shadow-2xl text-center mb-6">
+                <div className="text-5xl mb-3 animate-bounce">{game?.icon || '🎮'}</div>
+                <div className="text-[10px] font-black text-amber-300 uppercase tracking-widest mb-1">
+                  اختيار: {pickerName} {curRound?.pickedBy === 'host' ? '🔵' : '🔴'}
+                </div>
+                <h2 className="text-2xl font-black text-white mb-1">{game?.title}</h2>
+                <p className="text-xs text-slate-300 mb-4">{game?.ability}</p>
 
-          {/* Launch Action */}
-          <Link
-            href={`/play/${curRound?.gameId}?mode=duel&roomId=${room.roomId}&round=${curRound?.roundOrder}&seed=${curRound?.seed}`}
-            className="w-full py-4 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl active:scale-98 transition-all flex items-center justify-center gap-2 mb-4 cursor-pointer"
-          >
-            <span>خوض الجولة بالبذرة الموحدة ⚡</span>
-            <span>◀</span>
-          </Link>
+                {autoLaunchCount !== null && autoLaunchCount > 0 && (
+                  <div className="mb-4 p-2.5 rounded-xl bg-amber-400/20 border border-amber-400/40 text-amber-300 font-black text-xs animate-pulse">
+                    ⚡ الانطلاق التلقائي المباشر خلال {autoLaunchCount} ثوانٍ...
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-white/10 flex items-center justify-around text-xs text-slate-300">
+                  <div>
+                    <div className="text-[10px] text-slate-400">بذرة موحدة</div>
+                    <div className="font-mono font-black text-amber-300">#{curRound?.seed}</div>
+                  </div>
+                  <div className="h-6 w-px bg-white/10" />
+                  <div>
+                    <div className="text-[10px] text-slate-400">بونص الفوز</div>
+                    <div className="font-black text-emerald-400">+200 نقطة</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Direct Launch Button */}
+              {targetPlayUrl && (
+                <button
+                  type="button"
+                  onClick={() => router.push(targetPlayUrl)}
+                  className="w-full py-4 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl active:scale-98 transition-all flex items-center justify-center gap-2 mb-4 cursor-pointer"
+                >
+                  <span>خوض الجولة بالبذرة الموحدة ⚡</span>
+                  <span>◀</span>
+                </button>
+              )}
+            </>
+          )}
 
           {/* Local mode pass-and-play manual recorder */}
           {room.mode === 'local' && (

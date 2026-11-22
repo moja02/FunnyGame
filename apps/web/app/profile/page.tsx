@@ -248,6 +248,17 @@ export default function ProfilePage() {
         );
       } else {
         setAuthSuccess('أهلاً بك! تم إنشاء حسابك بنجاح وتم ربطه باللوحة 🟢');
+        if (typeof window !== 'undefined') {
+          const pendingDuel = localStorage.getItem('fg_pending_duel_invite');
+          if (pendingDuel) {
+            localStorage.removeItem('fg_pending_duel_invite');
+            const path = window.location.pathname;
+            const basePrefix = path.includes('/FunnyGame') ? '/FunnyGame' : '';
+            setTimeout(() => {
+              window.location.href = `${basePrefix}/duel/?room=${pendingDuel}`;
+            }, 600);
+          }
+        }
       }
     } else {
       const res = await signInWithPassword(emailInput, passwordInput);
@@ -256,6 +267,17 @@ export default function ProfilePage() {
         setAuthNotice(res.error.message);
       } else {
         setAuthSuccess('أهلاً بعودتك! تم تسجيل الدخول بنجاح 🟢');
+        if (typeof window !== 'undefined') {
+          const pendingDuel = localStorage.getItem('fg_pending_duel_invite');
+          if (pendingDuel) {
+            localStorage.removeItem('fg_pending_duel_invite');
+            const path = window.location.pathname;
+            const basePrefix = path.includes('/FunnyGame') ? '/FunnyGame' : '';
+            setTimeout(() => {
+              window.location.href = `${basePrefix}/duel/?room=${pendingDuel}`;
+            }, 600);
+          }
+        }
       }
     }
   };

@@ -16,6 +16,34 @@ import { getSupabaseBrowserClient } from '../supabase-browser';
 const CODE_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
 /**
+ * Normalizes user input room codes: handles lowercase, missing "LY-", spaces, dashes, or full URLs.
+ */
+export function normalizeRoomCode(raw: string): string {
+  if (!raw) return '';
+  let cleaned = raw.trim().toUpperCase();
+  // If user pasted a full URL e.g. https://.../duel/?room=LY-8K2A
+  if (cleaned.includes('ROOM=')) {
+    cleaned = cleaned.split('ROOM=')[1]?.split('&')[0] || cleaned;
+  }
+  // Remove hash or query marks
+  cleaned = cleaned.replace(/^[#?@]/, '');
+  // Normalize dashes or underscores
+  cleaned = cleaned.replace(/[—–_]/g, '-');
+  // Remove any surrounding quotes or spaces
+  cleaned = cleaned.replace(/['"]/g, '').trim();
+  // If user typed only the 4-char suffix (e.g. "8K2A")
+  if (!cleaned.startsWith('LY-') && !cleaned.startsWith('LY')) {
+    if (cleaned.length === 4 || cleaned.length === 5) {
+      cleaned = `LY-${cleaned}`;
+    }
+  } else if (cleaned.startsWith('LY') && !cleaned.startsWith('LY-')) {
+    // E.g. "LY8K2A" -> "LY-8K2A"
+    cleaned = `LY-${cleaned.slice(2)}`;
+  }
+  return cleaned;
+}
+
+/**
  * Generates an esports-styled tournament room code e.g. LY-8K2A
  */
 export function generateRoomCode(): string {
@@ -24,6 +52,19 @@ export function generateRoomCode(): string {
     code += CODE_CHARS.charAt(Math.floor(Math.random() * CODE_CHARS.length));
   }
   return `LY-${code}`;
+}
+
+const activeChannels = new Map<string, any>();
+
+function getOrCreateDuelChannel(roomCode: string) {
+  const clean = normalizeRoomCode(roomCode);
+  if (activeChannels.has(clean)) {
+    return activeChannels.get(clean);
+  }
+  const supabase = getSupabaseBrowserClient();
+  const channel = supabase.channel(`duel_room:${clean}`);
+  activeChannels.set(clean, channel);
+  return channel;
 }
 
 /**
@@ -35,7 +76,11 @@ export function createDuelRoom(
   host: DuelPlayer,
   customCode?: string
 ): DuelRoomState {
-  const roomId = customCode ? customCode.toUpperCase() : generateRoomCode();
+  if (host.isGuest) {
+    throw new Error('يجب تسجيل الدخول بحساب رسمي لإنشاء غرفة تحدي ثنائي.');
+  }
+
+  const roomId = customCode ? normalizeRoomCode(customCode) : generateRoomCode();
   const startingPlayer: PlayerSide = Math.random() < 0.5 ? 'host' : 'guest';
   const pickOrder = getDraftPickOrder(matchSize, startingPlayer);
   const seeds = generateMatchRoundSeeds(Date.now(), matchSize);
@@ -98,9 +143,16 @@ export function createDuelRoom(
 export async function joinDuelRoom(
   roomCode: string,
   guest: DuelPlayer,
-  timeoutMs = 5000
+  timeoutMs = 6000
 ): Promise<DuelRoomState | null> {
-  const cleanCode = roomCode.trim().toUpperCase();
+  const cleanCode = normalizeRoomCode(roomCode);
+  if (!cleanCode) return null;
+
+  if (guest.isGuest) {
+    console.warn('Guest users cannot join duel matches.');
+    return null;
+  }
+
   let room = getDuelRoomLocal(cleanCode);
 
   // 1. If found locally (same device or reconnecting host)
@@ -126,17 +178,10 @@ export async function joinDuelRoom(
   return new Promise<DuelRoomState | null>((resolve) => {
     let resolved = false;
     let pingInterval: any = null;
-    const supabase = getSupabaseBrowserClient();
-    const channelName = `duel_room:${cleanCode}`;
-    const channel = supabase.channel(channelName);
+    const channel = getOrCreateDuelChannel(cleanCode);
 
     const cleanup = () => {
       if (pingInterval) clearInterval(pingInterval);
-      try {
-        supabase.removeChannel(channel);
-      } catch {
-        // ignore
-      }
     };
 
     const timer = setTimeout(() => {
@@ -176,7 +221,7 @@ export async function joinDuelRoom(
           }
         }
       })
-      .subscribe(async (status) => {
+      .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
           const sendPing = async () => {
             if (resolved) return;
@@ -197,8 +242,8 @@ export async function joinDuelRoom(
           };
 
           await sendPing();
-          // Repeat ping every 750ms until host responds or timeout
-          pingInterval = setInterval(sendPing, 750);
+          // Repeat ping every 500ms until host responds or timeout
+          pingInterval = setInterval(sendPing, 500);
         }
       });
   });
@@ -285,11 +330,10 @@ export function recordRoundScore(
     guestTimeMs: playerSide === 'guest' ? timeMs : curRound.guestTimeMs,
   };
 
-  // Check if both players played this round (or in local mode if currently completing)
-  const isBothDone =
-    (playerSide === 'host' && (updatedRound.guestRawScore > 0 || room.mode === 'online')) ||
-    (playerSide === 'guest' && (updatedRound.hostRawScore > 0 || room.mode === 'online')) ||
-    (updatedRound.hostRawScore > 0 && updatedRound.guestRawScore > 0);
+  // Check if both players played this round
+  const hasHostSubmitted = updatedRound.hostTimeMs > 0 || updatedRound.hostRawScore > 0;
+  const hasGuestSubmitted = updatedRound.guestTimeMs > 0 || updatedRound.guestRawScore > 0;
+  const isBothDone = hasHostSubmitted && hasGuestSubmitted;
 
   // Evaluate normalized scores & bonuses
   const evaluated = evaluateDuelRound(
@@ -439,8 +483,7 @@ export function broadcastDuelRoom(room: DuelRoomState): void {
   // 2. Supabase Realtime broadcast channel
   if (room.mode === 'online') {
     try {
-      const supabase = getSupabaseBrowserClient();
-      const channel = supabase.channel(`duel_room:${room.roomId}`);
+      const channel = getOrCreateDuelChannel(room.roomId);
       channel.send({
         type: 'broadcast',
         event: 'room_state',
@@ -448,6 +491,7 @@ export function broadcastDuelRoom(room: DuelRoomState): void {
       });
 
       // Also persist to Supabase duel_rooms table if available
+      const supabase = getSupabaseBrowserClient();
       supabase
         .from('duel_rooms')
         .upsert({
@@ -473,7 +517,7 @@ export function subscribeToDuelRoom(
 ): () => void {
   if (typeof window === 'undefined') return () => {};
 
-  const cleanId = roomId.toUpperCase();
+  const cleanId = normalizeRoomCode(roomId);
 
   // 1. Local event listener
   const handleLocalEvent = (e: Event) => {
@@ -487,9 +531,8 @@ export function subscribeToDuelRoom(
   // 2. Supabase Realtime Channel
   let channel: any = null;
   try {
-    const supabase = getSupabaseBrowserClient();
-    channel = supabase
-      .channel(`duel_room:${cleanId}`)
+    channel = getOrCreateDuelChannel(cleanId);
+    channel
       .on('broadcast', { event: 'room_state' }, (msg: any) => {
         if (msg?.payload && msg.payload.roomId === cleanId) {
           const remote = msg.payload as DuelRoomState;
@@ -562,7 +605,7 @@ export function subscribeToDuelRoom(
     } catch {
       // ignore
     }
-  }, 2000);
+  }, 1500);
 
   return () => {
     window.removeEventListener('fg:duel_update', handleLocalEvent);
@@ -570,6 +613,7 @@ export function subscribeToDuelRoom(
     if (channel) {
       try {
         const supabase = getSupabaseBrowserClient();
+        activeChannels.delete(cleanId);
         supabase.removeChannel(channel);
       } catch {
         // ignore

@@ -19,7 +19,7 @@ import {
   setUserStreak,
   setUserDailyResult,
 } from '@/lib/storage-helpers';
-import { getDuelRoomLocal, recordRoundScore } from '@/lib/duel/duel-service';
+import { getDuelRoomLocal, recordRoundScore, broadcastDuelRoom } from '@/lib/duel/duel-service';
 import type { PlayerSide } from '@funnygame/game-core';
 import {
   clientRegistry,
@@ -519,13 +519,19 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         const isDuelMode = sp?.get('mode') === 'duel';
         const duelRoomId = sp?.get('roomId');
         const duelRound = parseInt(sp?.get('round') || '1', 10);
-        const duelPlayer = (sp?.get('player') as PlayerSide) || 'host';
+        let duelPlayer = (sp?.get('player') as PlayerSide) || 'host';
 
         if (isDuelMode && duelRoomId) {
           const room = getDuelRoomLocal(duelRoomId);
           if (room) {
+            if (room.host.id === profile.id) {
+              duelPlayer = 'host';
+            } else if (room.guest?.id === profile.id) {
+              duelPlayer = 'guest';
+            }
             const timeMs = Math.max(1000, submittedAt - startedAtRef.current);
-            recordRoundScore(room, duelRound, duelPlayer, finalScore, timeMs);
+            const updated = recordRoundScore(room, duelRound, duelPlayer, finalScore, timeMs);
+            broadcastDuelRoom(updated);
           }
         }
       } catch (err) {
@@ -894,11 +900,17 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     const startedAt = Date.now();
     let currentMode = 'free';
 
-    // Support deterministic Daily Challenge mode from URL query parameters
+    // Support deterministic Daily Challenge or Duel mode from URL query parameters
     if (typeof window !== 'undefined') {
       const sp = new URLSearchParams(window.location.search);
       if (sp.get('mode') === 'daily') {
         currentMode = 'daily';
+        const passedSeed = Number(sp.get('seed'));
+        if (passedSeed && !isNaN(passedSeed)) {
+          generatedSeed = passedSeed;
+        }
+      } else if (sp.get('mode') === 'duel') {
+        currentMode = 'duel';
         const passedSeed = Number(sp.get('seed'));
         if (passedSeed && !isNaN(passedSeed)) {
           generatedSeed = passedSeed;
@@ -919,8 +931,8 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         });
         if (res.ok) {
           const data = await res.json();
-          // If not in deterministic daily mode, use server-provided seed
-          if (data.seed && currentMode !== 'daily') generatedSeed = data.seed;
+          // If not in deterministic daily or duel mode, use server-provided seed
+          if (data.seed && currentMode !== 'daily' && currentMode !== 'duel') generatedSeed = data.seed;
           if (data.runId) runId = data.runId;
         }
       } catch {
@@ -1016,6 +1028,27 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       {/* 1. Active Game HUD & Bars */}
       {gameState === 'playing' && (
         <>
+          {duelRoomId && (
+            <div className="flex items-center justify-between px-3 py-1.5 mb-1.5 rounded-xl bg-amber-400/10 border border-amber-400/30 text-[11px] font-black text-amber-300">
+              <span className="flex items-center gap-1.5">
+                <span>⚔️</span>
+                <span>بطولة التحدي • الجولة {duelRound} • الغرفة {duelRoomId}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.confirm('هل تريد الانسحاب والعودة لغرفة التحدي؟')) {
+                    const path = window.location.pathname;
+                    const basePrefix = path.includes('/FunnyGame') ? '/FunnyGame' : '';
+                    router.push(`${basePrefix}/duel/?room=${duelRoomId}`);
+                  }
+                }}
+                className="text-[10px] text-rose-400 hover:text-rose-300 underline cursor-pointer"
+              >
+                انسحاب ✖
+              </button>
+            </div>
+          )}
           <Hud hearts={hearts} stage={stage} score={score} isBoss={stageCfg.isBoss} />
           <div className="px-4 mt-1">
             {gameId !== 'watch-and-judge' &&
@@ -1038,73 +1071,91 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       {/* 2. Briefing Screen */}
       {gameState === 'briefing' && (
         <div className="flex-1 flex flex-col items-center justify-center p-5 text-center">
-          {duelRoomId && (
-            <div className="mb-3 px-3 py-1.5 rounded-xl bg-amber-400/20 border border-amber-400/50 text-amber-300 text-xs font-black flex items-center gap-1.5 shadow-md">
-              <span>⚔️</span>
-              <span>جولة بطولة ثنائية • الغرفة {duelRoomId} • الجولة {duelRound}</span>
+          {duelRoomId ? (
+            <div className="flex flex-col items-center justify-center animate-pulse py-8">
+              <div className="w-24 h-24 rounded-3xl bg-amber-400/20 border-2 border-amber-400 flex items-center justify-center text-5xl mb-4 shadow-[0_0_35px_rgba(254,202,87,0.35)]">
+                {meta.icon}
+              </div>
+              <div className="mb-2 px-3 py-1.5 rounded-xl bg-amber-400/20 border border-amber-400/50 text-amber-300 text-xs font-black flex items-center gap-1.5 shadow-md">
+                <span>⚔️</span>
+                <span>جولة بطولة ثنائية • الغرفة {duelRoomId} • الجولة {duelRound}</span>
+              </div>
+              <h1 className="text-2xl font-heading font-black text-white mb-2">
+                استعد... تبدأ الجولة الآن! ⚡
+              </h1>
+              <p className="text-xs text-slate-400 mb-6">بذرة موحدة وتكافؤ 100% بين اللاعبين</p>
+              <button
+                type="button"
+                onClick={handleStartGame}
+                className="px-6 py-3 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-lg cursor-pointer"
+              >
+                انطلاق فوري ⚡
+              </button>
             </div>
+          ) : (
+            <>
+              <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-2 border-amber-400 flex items-center justify-center text-5xl mb-4 shadow-[0_0_35px_rgba(254,202,87,0.35)]">
+                {meta.icon}
+              </div>
+
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${meta.abilityBadgeColor}`}>
+                  {meta.abilityName}
+                </span>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/10 text-slate-300">
+                  70+ مرحلة
+                </span>
+              </div>
+
+              <h1 className="text-3xl font-heading font-black text-white mb-2">
+                {titleAr}
+              </h1>
+
+              <p className="text-xs text-slate-300 max-w-xs mb-4 leading-relaxed">
+                {descriptionAr}
+              </p>
+
+              {/* Quick rules box */}
+              <div className="w-full max-w-xs bg-slate-900/90 border border-white/10 rounded-2xl p-3 text-right mb-5 text-xs text-slate-300 space-y-1.5 shadow-md">
+                <div className="font-black text-amber-300 flex items-center gap-1.5 pb-1 border-b border-white/10">
+                  <span>⚠️</span>
+                  <span>قواعد الجولة:</span>
+                </div>
+                {meta.rules.map((rule, idx) => (
+                  <div key={idx}>• {rule}</div>
+                ))}
+              </div>
+
+              {personalBest > 0 && (
+                <div className="mb-4 text-xs font-bold text-amber-400">
+                  أعلى رقم ليك: {personalBest.toLocaleString('en-US')} نقطة 🏆
+                </div>
+              )}
+
+              <div className="flex flex-col w-full max-w-xs gap-2.5">
+                <button
+                  onClick={handleStartGame}
+                  className="w-full h-14 bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-slate-950 font-black rounded-2xl text-lg shadow-[0_5px_0_#9a3412] active:translate-y-1 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>ابدأ الجولة</span>
+                  <span>⚡</span>
+                </button>
+                <Link
+                  href={`/leaderboard/${gameId}`}
+                  className="w-full h-11 rounded-xl bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <span>🏆</span>
+                  <span>لوحة صدارة {titleAr}</span>
+                </Link>
+                <Link
+                  href="/"
+                  className="w-full h-10 rounded-xl bg-white/5 text-slate-400 hover:text-white font-bold text-xs flex items-center justify-center transition-colors"
+                >
+                  رجوع للرئيسية ◀
+                </Link>
+              </div>
+            </>
           )}
-
-          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-2 border-amber-400 flex items-center justify-center text-5xl mb-4 shadow-[0_0_35px_rgba(254,202,87,0.35)]">
-            {meta.icon}
-          </div>
-
-          <div className="flex items-center gap-1.5 mb-2">
-            <span className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${meta.abilityBadgeColor}`}>
-              {meta.abilityName}
-            </span>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/10 text-slate-300">
-              70+ مرحلة
-            </span>
-          </div>
-
-          <h1 className="text-3xl font-heading font-black text-white mb-2">
-            {titleAr}
-          </h1>
-
-          <p className="text-xs text-slate-300 max-w-xs mb-4 leading-relaxed">
-            {descriptionAr}
-          </p>
-
-          {/* Quick rules box */}
-          <div className="w-full max-w-xs bg-slate-900/90 border border-white/10 rounded-2xl p-3 text-right mb-5 text-xs text-slate-300 space-y-1.5 shadow-md">
-            <div className="font-black text-amber-300 flex items-center gap-1.5 pb-1 border-b border-white/10">
-              <span>⚠️</span>
-              <span>قواعد الجولة:</span>
-            </div>
-            {meta.rules.map((rule, idx) => (
-              <div key={idx}>• {rule}</div>
-            ))}
-          </div>
-
-          {personalBest > 0 && (
-            <div className="mb-4 text-xs font-bold text-amber-400">
-              أعلى رقم ليك: {personalBest.toLocaleString('en-US')} نقطة 🏆
-            </div>
-          )}
-
-          <div className="flex flex-col w-full max-w-xs gap-2.5">
-            <button
-              onClick={handleStartGame}
-              className="w-full h-14 bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-slate-950 font-black rounded-2xl text-lg shadow-[0_5px_0_#9a3412] active:translate-y-1 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span>ابدأ الجولة</span>
-              <span>⚡</span>
-            </button>
-            <Link
-              href={`/leaderboard/${gameId}`}
-              className="w-full h-11 rounded-xl bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
-            >
-              <span>🏆</span>
-              <span>لوحة صدارة {titleAr}</span>
-            </Link>
-            <Link
-              href="/"
-              className="w-full h-10 rounded-xl bg-white/5 text-slate-400 hover:text-white font-bold text-xs flex items-center justify-center transition-colors"
-            >
-              رجوع للرئيسية ◀
-            </Link>
-          </div>
         </div>
       )}
 
@@ -1143,40 +1194,51 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       {/* 5. Game Over Result Screen */}
       {gameState === 'gameover' && (
         <div className="flex-1 flex flex-col items-center justify-center p-4">
-          {duelRoomId && (
-            <div className="w-full max-w-xs mb-4 p-4 rounded-2xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-rose-500/20 border-2 border-amber-400 text-center shadow-xl animate-bounce">
+          {duelRoomId ? (
+            <div className="w-full max-w-xs p-6 rounded-3xl bg-slate-900/95 border-2 border-amber-400 text-center shadow-2xl animate-fade-in">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-400/20 border border-amber-400 flex items-center justify-center text-4xl mb-3 animate-bounce">
+                🎯
+              </div>
               <div className="text-xs font-black text-amber-300 mb-1">
-                تم تسجيل نتيجتك في بطولة التحدي الثنائي! ⚔️
+                جولة بطولة التحدي الثنائي ⚔️ • الجولة {duelRound}
               </div>
-              <div className="text-sm font-black text-white mb-3">
-                النقاط المحققة: {score.toLocaleString()} نقطة
+              <h2 className="text-xl font-black text-white mb-2">أنهيت الجولة بنجاح!</h2>
+              <div className="text-3xl font-black text-amber-400 font-mono mb-2">
+                {score.toLocaleString()} <span className="text-xs text-slate-400 font-normal">نقطة</span>
               </div>
+              <p className="text-xs text-slate-300 mb-6 leading-relaxed">
+                تم تسجيل نتيجتك ونقلها للمقارنة وحساب فارق النقاط مع الخصم.
+              </p>
               <button
                 type="button"
-                onClick={() => router.push(`/duel?room=${duelRoomId}`)}
-                className="w-full py-3 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                onClick={() => {
+                  const path = typeof window !== 'undefined' ? window.location.pathname : '';
+                  const basePrefix = path.includes('/FunnyGame') ? '/FunnyGame' : '';
+                  router.push(`${basePrefix}/duel/?room=${duelRoomId}`);
+                }}
+                className="w-full py-3.5 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>العودة لنتائج جولة التحدي ⚔️</span>
+                <span>العودة لنتائج الجولة ⚔️</span>
                 <span>◀</span>
               </button>
             </div>
+          ) : (
+            <ResultScreen
+              score={score}
+              stageReached={stage}
+              personalBestScore={personalBest}
+              taunt={gameOverTaunt || getTaunt(stageRef.current, scoreRef.current)}
+              gameTitle={titleAr}
+              shareUrl={
+                typeof window !== 'undefined'
+                  ? `${window.location.origin}${window.location.pathname.startsWith('/FunnyGame') ? '/FunnyGame' : ''}/play/${gameId}`
+                  : `https://moja02.github.io/FunnyGame/play/${gameId}`
+              }
+              onPlayAgain={handleStartGame}
+              onGoHome={() => router.push('/')}
+              onViewLeaderboard={() => router.push(`/leaderboard/${gameId}`)}
+            />
           )}
-
-          <ResultScreen
-            score={score}
-            stageReached={stage}
-            personalBestScore={personalBest}
-            taunt={gameOverTaunt || getTaunt(stageRef.current, scoreRef.current)}
-            gameTitle={titleAr}
-            shareUrl={
-              typeof window !== 'undefined'
-                ? `${window.location.origin}${window.location.pathname.startsWith('/FunnyGame') ? '/FunnyGame' : ''}/play/${gameId}`
-                : `https://moja02.github.io/FunnyGame/play/${gameId}`
-            }
-            onPlayAgain={handleStartGame}
-            onGoHome={() => router.push(duelRoomId ? `/duel?room=${duelRoomId}` : '/')}
-            onViewLeaderboard={() => router.push(`/leaderboard/${gameId}`)}
-          />
         </div>
       )}
     </main>
