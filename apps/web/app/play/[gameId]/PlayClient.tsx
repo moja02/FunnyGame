@@ -437,6 +437,55 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       }
     }
 
+    // Update global personal stats in localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const currentTotal = Number(localStorage.getItem('fg_total_games') || 0);
+        localStorage.setItem('fg_total_games', (currentTotal + 1).toString());
+
+        const gamePlays = Number(localStorage.getItem(`fg_plays_${gameId}`) || 0);
+        localStorage.setItem(`fg_plays_${gameId}`, (gamePlays + 1).toString());
+
+        const currentPoints = Number(localStorage.getItem('fg_total_points') || 0);
+        localStorage.setItem('fg_total_points', (currentPoints + finalScore).toString());
+
+        // Update streak
+        const todayStr = new Date().toISOString().split('T')[0] || '';
+        const lastStreakDate = localStorage.getItem('fg_last_streak_date');
+        let streak = Number(localStorage.getItem('fg_streak_days') || 0);
+
+        if (!lastStreakDate) {
+          streak = 1;
+        } else if (lastStreakDate !== todayStr) {
+          const lastDate = new Date(lastStreakDate);
+          const today = new Date(todayStr);
+          const diffDays = Math.round((today.getTime() - lastDate.getTime()) / (1000 * 3600 * 24));
+          if (diffDays === 1) {
+            streak += 1;
+          } else if (diffDays > 1) {
+            streak = 1;
+          }
+        }
+        localStorage.setItem('fg_streak_days', streak.toString());
+        localStorage.setItem('fg_last_streak_date', todayStr);
+
+        // Daily challenge result tracking
+        const sp = new URLSearchParams(window.location.search);
+        if (sp.get('mode') === 'daily') {
+          const dailyRecord = {
+            gameId,
+            score: finalScore,
+            stage: stageRef.current,
+            date: todayStr,
+            timestamp: submittedAt
+          };
+          localStorage.setItem(`fg_daily_result_${todayStr}`, JSON.stringify(dailyRecord));
+        }
+      } catch (err) {
+        console.warn('Local stats storage notice:', err);
+      }
+    }
+
     // Submit verified run to server if registered cloud user
     const activeUserId = user?.id || (profile.isGuest ? null : profile.id);
     if (!profile.isGuest && activeUserId) {
@@ -794,6 +843,19 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     let generatedSeed = Math.floor(Math.random() * 2147483647) + 1;
     let runId = `local_${Date.now()}`;
     const startedAt = Date.now();
+    let currentMode = 'free';
+
+    // Support deterministic Daily Challenge mode from URL query parameters
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get('mode') === 'daily') {
+        currentMode = 'daily';
+        const passedSeed = Number(sp.get('seed'));
+        if (passedSeed && !isNaN(passedSeed)) {
+          generatedSeed = passedSeed;
+        }
+      }
+    }
 
     if (!profile.isGuest && user?.id) {
       try {
@@ -803,12 +865,13 @@ export default function PlayClient({ gameId }: PlayClientProps) {
           body: JSON.stringify({
             gameId,
             userId: user.id,
-            mode: 'free'
+            mode: currentMode
           })
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.seed) generatedSeed = data.seed;
+          // If not in deterministic daily mode, use server-provided seed
+          if (data.seed && currentMode !== 'daily') generatedSeed = data.seed;
           if (data.runId) runId = data.runId;
         }
       } catch {

@@ -6,8 +6,25 @@ import { BottomNav } from '../components/BottomNav';
 import { CitySelectModal } from '../components/CitySelectModal';
 import { useAuth } from '@/lib/auth-context';
 import { getCityById, LIBYA_REGIONS } from '@funnygame/game-core';
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 const avatars = ['⚡', '👑', '🎯', '🦁', '🤖', '🐱', '🦊', '🚀', '🔥', '💎', '🌟', '🏆'];
+
+const ALL_13_GAMES = [
+  { id: 'color-trap', title: 'ألوان خادعة', ability: 'السرعة والتركيز', icon: '🎨' },
+  { id: 'dont-tap', title: 'لا تضغط!', ability: 'السرعة والتركيز', icon: '🛑' },
+  { id: 'odd-one-out', title: 'الدخيل', ability: 'السرعة والتركيز', icon: '👁️' },
+  { id: 'calc-pressure', title: 'حاسبة تحت الضغط', ability: 'الحساب والبديهة', icon: '🧮' },
+  { id: 'math-bridge', title: 'الجسر الحسابي', ability: 'الحساب والبديهة', icon: '🌉' },
+  { id: 'number-hunt', title: 'صيد الرقم', ability: 'الحساب والبديهة', icon: '🎯' },
+  { id: 'where-did-it-go', title: 'أين اختفت؟', ability: 'الذاكرة والاستدعاء', icon: '🔍' },
+  { id: 'follow-pattern', title: 'اتبع النمط', ability: 'الذاكرة والاستدعاء', icon: '🧩' },
+  { id: 'watch-and-judge', title: 'شاهد واحكم', ability: 'الذاكرة والاستدعاء', icon: '👁️' },
+  { id: 'moving-maze', title: 'متاهة تتحرك', ability: 'الذكاء والمنطق', icon: '🧭' },
+  { id: 'tile-match', title: 'مطابقة الطبقات', ability: 'الذكاء والمنطق', icon: '🍓' },
+  { id: 'smart-trap', title: 'الفخ الذكي', ability: 'الذكاء والمنطق', icon: '🪤' },
+  { id: 'complete-sequence', title: 'أكمل المتتالية', ability: 'الذكاء والمنطق', icon: '🔢' },
+];
 
 export default function ProfilePage() {
   const {
@@ -28,6 +45,14 @@ export default function ProfilePage() {
   const [copied, setCopied] = useState(false);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
+  // Personal Player Stats State
+  const [totalGames, setTotalGames] = useState(0);
+  const [streakDays, setStreakDays] = useState(0);
+  const [careerPoints, setCareerPoints] = useState(0);
+  const [highestScore, setHighestScore] = useState(0);
+  const [playedGamesCount, setPlayedGamesCount] = useState(0);
+  const [gameRecords, setGameRecords] = useState<{ id: string; title: string; ability: string; icon: string; pb: number }[]>([]);
+
   // City modal
   const [isCityModalOpen, setIsCityModalOpen] = useState(false);
 
@@ -45,6 +70,72 @@ export default function ProfilePage() {
     setNickname(profile.nickname);
     setSelectedAvatar(profile.avatar);
   }, [profile.nickname, profile.avatar]);
+
+  // Load player stats from localStorage and Supabase on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Scan all 13 games
+    const records = ALL_13_GAMES.map((g) => {
+      const pb = Number(localStorage.getItem(`fg_pb_${g.id}`) || 0);
+      return { ...g, pb };
+    });
+    setGameRecords(records);
+
+    const played = records.filter((r) => r.pb > 0);
+    setPlayedGamesCount(played.length);
+
+    const maxScore = records.reduce((max, r) => Math.max(max, r.pb), 0);
+    setHighestScore(maxScore);
+
+    const storedTotalPoints = Number(localStorage.getItem('fg_total_points') || 0);
+    const sumPoints = storedTotalPoints > 0 ? storedTotalPoints : records.reduce((sum, r) => sum + r.pb, 0);
+    setCareerPoints(sumPoints);
+
+    let totalG = Number(localStorage.getItem('fg_total_games') || 0);
+    if (totalG === 0 && played.length > 0) {
+      totalG = played.length;
+    }
+    setTotalGames(totalG);
+
+    // Streak verification
+    const todayStr = new Date().toISOString().split('T')[0] || '';
+    const lastStreakDate = localStorage.getItem('fg_last_streak_date');
+    let streak = Number(localStorage.getItem('fg_streak_days') || 0);
+
+    if (lastStreakDate) {
+      const lastDate = new Date(lastStreakDate);
+      const today = new Date(todayStr);
+      const diffDays = Math.round((today.getTime() - lastDate.getTime()) / (1000 * 3600 * 24));
+      if (diffDays > 1) {
+        streak = 0; // broken streak if more than 1 day skipped
+      }
+    }
+    setStreakDays(streak);
+
+    // If logged into cloud, fetch Supabase server stats
+    if (!profile.isGuest && user?.id) {
+      const supabase = getSupabaseBrowserClient();
+      supabase
+        .from('profiles')
+        .select('total_games, wins')
+        .eq('id', user.id)
+        .maybeSingle()
+        .then(
+          ({ data }) => {
+            if (data) {
+              if (data.total_games && data.total_games > totalG) {
+                setTotalGames(data.total_games);
+              }
+              if (data.wins && data.wins > maxScore) {
+                setHighestScore(data.wins);
+              }
+            }
+          },
+          () => {}
+        );
+    }
+  }, [profile.isGuest, user?.id]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -216,6 +307,11 @@ export default function ProfilePage() {
               {copied ? '✔ تم' : '📋 نسخ'}
             </button>
           </div>
+          {careerPoints > 0 && (
+            <div className="mt-1 text-[11px] font-black text-amber-300 bg-amber-400/10 border border-amber-400/20 px-3 py-0.5 rounded-full">
+              مجموع النقاط: {careerPoints.toLocaleString()} ⚡
+            </div>
+          )}
         </div>
       </div>
 
@@ -422,26 +518,78 @@ export default function ProfilePage() {
           <span>إحصائياتك الشخصية</span>
         </h3>
         <div className="grid grid-cols-2 gap-2.5">
-          <div className="p-3.5 bg-rose-950/20 border border-rose-500/30 rounded-2xl text-center">
-            <div className="text-xs text-rose-300 font-bold">حالة الصدارة</div>
-            <div className="text-base font-black text-white mt-1">
-              {profile.isGuest ? 'غير مصنف (زائر)' : 'مؤهل للمنافسة 🏆'}
-            </div>
-          </div>
-          <div className="p-3.5 bg-purple-950/20 border border-purple-500/30 rounded-2xl text-center">
-            <div className="text-xs text-purple-300 font-bold">الأصدقاء المضافون</div>
-            <div className="text-2xl font-black text-white mt-1 tabular-nums">
-              {profile.friends?.length || 0}
-            </div>
-          </div>
           <div className="p-3.5 bg-emerald-950/20 border border-emerald-500/30 rounded-2xl text-center">
             <div className="text-xs text-emerald-300 font-bold">الألعاب الملعوبة</div>
-            <div className="text-2xl font-black text-white mt-1 tabular-nums">0</div>
+            <div className="text-2xl font-black text-white mt-1 tabular-nums">
+              {totalGames}
+            </div>
           </div>
           <div className="p-3.5 bg-amber-950/20 border border-amber-500/30 rounded-2xl text-center">
             <div className="text-xs text-amber-300 font-bold">سلسلة الأيام (Streak)</div>
-            <div className="text-2xl font-black text-white mt-1 tabular-nums">🔥 0 يوم</div>
+            <div className="text-2xl font-black text-white mt-1 tabular-nums">
+              🔥 {streakDays} {streakDays === 1 ? 'يوم' : 'أيام'}
+            </div>
           </div>
+          <div className="p-3.5 bg-purple-950/20 border border-purple-500/30 rounded-2xl text-center">
+            <div className="text-xs text-purple-300 font-bold">أعلى رقم قياسي</div>
+            <div className="text-xl font-black text-white mt-1 tabular-nums">
+              {highestScore > 0 ? `${highestScore.toLocaleString()} 🏆` : '—'}
+            </div>
+          </div>
+          <div className="p-3.5 bg-rose-950/20 border border-rose-500/30 rounded-2xl text-center">
+            <div className="text-xs text-rose-300 font-bold">الألعاب المستكشفة</div>
+            <div className="text-xl font-black text-white mt-1 tabular-nums">
+              {playedGamesCount} من 13 لعبة
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Per-Game Records Breakdown */}
+      <div className="p-4 bg-slate-900/90 border border-white/10 rounded-3xl mb-4 shadow-lg">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+            <span>🎮</span>
+            <span>أرقامك القياسية في الألعاب (13 لعبة)</span>
+          </h3>
+          <span className="text-[11px] font-bold text-amber-400">
+            {playedGamesCount} / 13 لعبة
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-2 max-h-[380px] overflow-y-auto pr-1">
+          {gameRecords.map((g) => (
+            <div
+              key={g.id}
+              className="p-2.5 bg-slate-950/60 rounded-2xl border border-white/10 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="text-2xl">{g.icon}</span>
+                <div>
+                  <div className="text-xs font-black text-white">{g.title}</div>
+                  <div className="text-[10px] text-slate-400">{g.ability}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {g.pb > 0 ? (
+                  <span className="px-2.5 py-1 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-300 font-black text-xs tabular-nums">
+                    {g.pb.toLocaleString()} نقطة
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-500 font-bold px-2 py-0.5 rounded-lg bg-white/5">
+                    لم تلعب بعد
+                  </span>
+                )}
+                <Link
+                  href={`/play/${g.id}`}
+                  className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/10 transition-colors"
+                >
+                  العب ◀
+                </Link>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

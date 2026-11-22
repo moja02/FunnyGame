@@ -12,7 +12,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: '/', label: 'الرئيسية', icon: '🏠' },
-  { href: '/games', label: 'الألعاب', icon: '🎮', badge: '16' },
+  { href: '/games', label: 'الألعاب', icon: '🎮', badge: '13' },
   { href: '/daily', label: 'اليومي', icon: '🎯' },
   { href: '/league', label: 'الدوري', icon: '🏆' },
   { href: '/profile', label: 'حسابي', icon: '👤' },

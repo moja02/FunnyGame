@@ -19,7 +19,7 @@ const lalezar = Lalezar({
 
 export const metadata: Metadata = {
   title: 'FunnyGame ⚡ | منصة ألعاب التحدي والذكاء',
-  description: '16 لعبة ذكاء، سرعة بديهة، حساب، وذاكرة. تحدى أصحابك في الدوري الأسبوعي والتحدي اليومي.',
+  description: '13 لعبة ذكاء، سرعة بديهة، حساب، وذاكرة. تحدى أصحابك في التحدي اليومي والصدارة الليبية.',
 };
 
 export const viewport: Viewport = {

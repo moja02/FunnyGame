@@ -14,43 +14,42 @@ export default function LeaguePage() {
         <div className="w-12" />
       </header>
 
-      {/* League Banner */}
-      <div className="p-5 bg-gradient-to-br from-purple-900/40 via-indigo-950/40 to-slate-950 border-2 border-purple-500/50 rounded-3xl mb-5 shadow-xl">
-        <div className="flex justify-between items-center mb-2">
-          <span className="px-3 py-1 bg-amber-400/20 text-amber-300 border border-amber-400/40 rounded-full text-xs font-black">
-            دوري البرونز (المجموعة #1)
-          </span>
-          <span className="text-xs text-slate-400 font-bold">
-            الإغلاق: الجمعة 23:59
-          </span>
+      {/* League Maintenance Banner */}
+      <div className="p-6 bg-gradient-to-br from-purple-950/60 via-slate-900 to-slate-950 border-2 border-purple-500/40 rounded-3xl mb-5 shadow-2xl text-center">
+        <div className="w-16 h-16 mx-auto rounded-3xl bg-purple-500/20 border border-purple-400/30 flex items-center justify-center text-3xl mb-4 animate-bounce">
+          🛠️
         </div>
 
-        <h2 className="text-xl font-black text-white mt-2">منافسة الأسبوع بين 30 لاعباً</h2>
-        <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-          أعلى 10 لاعبين يصعدون للدوري الأعلى (الفضة)، وآخر 5 يهبطون. اجمع النقاط عبر لعب الألعاب والتحدي اليومي!
+        <div className="inline-block px-3 py-1 bg-amber-400/20 text-amber-300 border border-amber-400/40 rounded-full text-xs font-black mb-3">
+          تحت الصيانة والتطوير
+        </div>
+
+        <h2 className="text-xl font-black text-white mb-2">الدوري الأسبوعي تحت الصيانة</h2>
+        <p className="text-xs text-slate-300 max-w-sm mx-auto leading-relaxed mb-4">
+          يتم حالياً تطوير نظام المجموعات (30 لاعباً) وجدولة التصفيات وصعود وهبوط الدوريات تلقائياً. سنعلن عن انطلاق أول موسم للدوري قريباً بإذن الله!
         </p>
 
-        {/* Promotion / Demotion Rules */}
-        <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-white/10 text-xs">
-          <div className="flex items-center gap-1 text-emerald-400 font-bold">
-            <span>🟢</span>
-            <span>المراتب 1 - 10: صعود مباشر</span>
-          </div>
-          <div className="flex items-center gap-1 text-rose-400 font-bold">
-            <span>🔴</span>
-            <span>المراتب 26 - 30: هبوط</span>
-          </div>
+        <div className="p-3 bg-black/40 border border-white/10 rounded-2xl max-w-xs mx-auto text-xs text-slate-400 font-bold mb-5">
+          الحالة: مغلق للصيانة لحين إشعار آخر ⏳
         </div>
+
+        <Link
+          href="/games"
+          className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs rounded-2xl shadow-lg transition-transform active:scale-95"
+        >
+          <span>تصفح الألعاب المتاحة الآن (13 لعبة)</span>
+          <span>◀</span>
+        </Link>
       </div>
 
-      {/* Cohort 30 Standings Placeholder */}
-      <div className="p-4 bg-slate-900 border border-white/10 rounded-2xl">
-        <h3 className="text-sm font-black text-slate-200 mb-3 flex items-center gap-1.5">
+      {/* Status Notice */}
+      <div className="p-4 bg-slate-900 border border-white/10 rounded-2xl text-center">
+        <h3 className="text-sm font-black text-slate-200 mb-2 flex items-center justify-center gap-1.5">
           <span>📊</span>
-          <span>ترتيب مجموعتك هذا الأسبوع</span>
+          <span>لوحة ترتيب المجموعات</span>
         </h3>
-        <div className="text-center py-8 text-xs text-slate-400">
-          يبدأ أول موسم للدوري مع إطلاق أول الألعاب التنافسية!
+        <div className="py-4 text-xs text-slate-400">
+          سيتم فتح الصدارة الأسبوعية فور اكتمال أعمال الصيانة.
         </div>
       </div>
 

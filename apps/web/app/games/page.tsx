@@ -16,7 +16,7 @@ interface GameItem {
 }
 
 const allGames: GameItem[] = [
-  // 1. السرعة والتركيز
+  // 1. السرعة والتركيز (3 ألعاب جاهزة)
   {
     id: 'color-trap',
     title: 'ألوان خادعة',
@@ -38,16 +38,6 @@ const allGames: GameItem[] = [
     stages: '70+ مرحلة'
   },
   {
-    id: 'moving-target',
-    title: 'الهدف المتحرك',
-    ability: 'speed',
-    abilityName: 'السرعة والتركيز',
-    icon: '🎯',
-    description: 'التقط الأهداف السريعة في اللحظة المناسبة تماماً قبل اختفائها.',
-    status: 'soon',
-    stages: '70+ مرحلة'
-  },
-  {
     id: 'odd-one-out',
     title: 'الدخيل',
     ability: 'speed',
@@ -57,18 +47,8 @@ const allGames: GameItem[] = [
     status: 'ready',
     stages: '70+ مرحلة'
   },
-  {
-    id: 'hawk-eye',
-    title: 'عين الصقر',
-    ability: 'speed',
-    abilityName: 'السرعة والتركيز',
-    icon: '🦅',
-    description: 'ردة فعل بصرية خاطفة لرصد العنصر المختلف في جزء من الثانية.',
-    status: 'soon',
-    stages: '70+ مرحلة'
-  },
 
-  // 2. الحساب والبديهة
+  // 2. الحساب والبديهة (3 ألعاب جاهزة)
   {
     id: 'calc-pressure',
     title: 'حاسبة تحت الضغط',
@@ -99,48 +79,8 @@ const allGames: GameItem[] = [
     status: 'ready',
     stages: '70+ مرحلة'
   },
-  {
-    id: 'speed-math',
-    title: 'حساب سريع',
-    ability: 'math',
-    abilityName: 'الحساب والبديهة',
-    icon: '⏱️',
-    description: 'معادلات حسابية خاطفة تحت ضغط الوقت مع فخاخ ذكية.',
-    status: 'soon',
-    stages: '70+ مرحلة'
-  },
-  {
-    id: 'greater-less',
-    title: 'أكبر وأصغر',
-    ability: 'math',
-    abilityName: 'الحساب والبديهة',
-    icon: '➕',
-    description: 'مقارنات سريعة بين قيم حسابية متغيرة بدون وقت للتفكير الطويل.',
-    status: 'soon',
-    stages: '70+ مرحلة'
-  },
-  {
-    id: 'number-balance',
-    title: 'ميزان الأرقام',
-    ability: 'math',
-    abilityName: 'الحساب والبديهة',
-    icon: '⚖️',
-    description: 'وازن بين الكفتين باختيار الأرقام المكملة قبل نفاد العداد.',
-    status: 'soon',
-    stages: '70+ مرحلة'
-  },
-  {
-    id: 'inverted-eq',
-    title: 'معادلة مقلوبة',
-    ability: 'math',
-    abilityName: 'الحساب والبديهة',
-    icon: '🔄',
-    description: 'اكتشف العملية الحسابية الصحيحة التي تعطي الناتج المعروض.',
-    status: 'soon',
-    stages: '70+ مرحلة'
-  },
 
-  // 3. الذاكرة والاستدعاء
+  // 3. الذاكرة والاستدعاء (3 ألعاب جاهزة)
   {
     id: 'where-did-it-go',
     title: 'أين اختفت؟',
@@ -171,48 +111,8 @@ const allGames: GameItem[] = [
     status: 'ready',
     stages: '70+ مرحلة'
   },
-  {
-    id: 'matrix-memory',
-    title: 'مصفوفة الذاكرة',
-    ability: 'memory',
-    abilityName: 'الذاكرة والاستدعاء',
-    icon: '🔲',
-    description: 'تذكر أماكن المربعات المضيئة وأعد فتحها بدقة بدون غلطة.',
-    status: 'soon',
-    stages: '70+ مرحلة'
-  },
-  {
-    id: 'number-sequence',
-    title: 'تسلسل الأرقام',
-    ability: 'memory',
-    abilityName: 'الذاكرة والاستدعاء',
-    icon: '🔢',
-    description: 'احفظ تسلسل الأرقام المومضة وأعد إدخالها بالترتيب الصحيح.',
-    status: 'soon',
-    stages: '70+ مرحلة'
-  },
-  {
-    id: 'matching-pairs',
-    title: 'أزواج متطابقة',
-    ability: 'memory',
-    abilityName: 'الذاكرة والاستدعاء',
-    icon: '🃏',
-    description: 'اكشف البطاقات وتذكر مواقع الأزواج المتشابهة بأقل حركات ممكنة.',
-    status: 'soon',
-    stages: '70+ مرحلة'
-  },
-  {
-    id: 'maze-path',
-    title: 'مسار المتاهة',
-    ability: 'memory',
-    abilityName: 'الذاكرة والاستدعاء',
-    icon: '🗺️',
-    description: 'احفظ المسار الآمن خلال ثوانٍ معدودة قبل أن تختفي المعالم.',
-    status: 'soon',
-    stages: '70+ مرحلة'
-  },
 
-  // 4. الذكاء والمنطق
+  // 4. الذكاء والمنطق (4 ألعاب جاهزة)
   {
     id: 'moving-maze',
     title: 'متاهة تتحرك',
@@ -252,46 +152,6 @@ const allGames: GameItem[] = [
     description: 'اكتشف القاعدة المنطقية بين العناصر (أرقام أو أشكال) واختر المكمل الناقص قبل نفاد الوقت!',
     status: 'ready',
     stages: '70+ مرحلة'
-  },
-  {
-    id: 'heaviest-lightest',
-    title: 'الأثقل والأخف',
-    ability: 'logic',
-    abilityName: 'الذكاء والمنطق',
-    icon: '⚖️',
-    description: 'استنتج الوزن النسبي للأشكال عبر موازين بصرية متداخلة.',
-    status: 'soon',
-    stages: '70+ مرحلة'
-  },
-  {
-    id: 'missing-pattern',
-    title: 'النمط الناقص',
-    ability: 'logic',
-    abilityName: 'الذكاء والمنطق',
-    icon: '🧩',
-    description: 'اكتشف القاعدة المنطقية للشكل واكمل النمط الناقص.',
-    status: 'soon',
-    stages: '70+ مرحلة'
-  },
-  {
-    id: 'compass-direction',
-    title: 'اتجاه البوصلة',
-    ability: 'logic',
-    abilityName: 'الذكاء والمنطق',
-    icon: '🧭',
-    description: 'حدد الاتجاه الحقيقي بسرعة بعد عدة دورانات منطقية متتالية.',
-    status: 'soon',
-    stages: '70+ مرحلة'
-  },
-  {
-    id: 'logic-anomaly',
-    title: 'العنصر الدخيل',
-    ability: 'logic',
-    abilityName: 'الذكاء والمنطق',
-    icon: '🔍',
-    description: 'استخرج العنصر الذي لا يخضع لنفس القاعدة المنطقية للبقية.',
-    status: 'soon',
-    stages: '70+ مرحلة'
   }
 ];
 
@@ -312,7 +172,7 @@ export default function GamesPage() {
         </Link>
         <h1 className="font-heading text-xl font-black text-amber-400">مكتبة الألعاب 🎮</h1>
         <div className="text-xs font-bold px-2.5 py-1 rounded-full bg-white/10 text-white">
-          16 لعبة
+          13 لعبة
         </div>
       </header>
 
@@ -326,7 +186,7 @@ export default function GamesPage() {
               : 'bg-slate-900 text-slate-400 border border-white/10 hover:text-white'
           }`}
         >
-          الكل (16)
+          الكل (13)
         </button>
         <button
           onClick={() => setSelectedAbility('speed')}
@@ -336,7 +196,7 @@ export default function GamesPage() {
               : 'bg-slate-900 text-slate-400 border border-white/10 hover:text-white'
           }`}
         >
-          ⚡ السرعة (4)
+          ⚡ السرعة (3)
         </button>
         <button
           onClick={() => setSelectedAbility('math')}
@@ -346,7 +206,7 @@ export default function GamesPage() {
               : 'bg-slate-900 text-slate-400 border border-white/10 hover:text-white'
           }`}
         >
-          🧮 الحساب (4)
+          🧮 الحساب (3)
         </button>
         <button
           onClick={() => setSelectedAbility('memory')}
@@ -356,7 +216,7 @@ export default function GamesPage() {
               : 'bg-slate-900 text-slate-400 border border-white/10 hover:text-white'
           }`}
         >
-          🧠 الذاكرة (4)
+          🧠 الذاكرة (3)
         </button>
         <button
           onClick={() => setSelectedAbility('logic')}
