@@ -36,20 +36,7 @@ jobs:
 
       - name: Build monorepo packages
         run: |
-          pnpm --filter @funnygame/game-core build
-          pnpm --filter @funnygame/ui build
-          pnpm --filter @funnygame/game-color-trap build
-          pnpm --filter @funnygame/game-dont-tap build
-          pnpm --filter @funnygame/game-odd-one-out build
-          pnpm --filter @funnygame/game-calc-pressure build
-          pnpm --filter @funnygame/game-math-bridge build
-          pnpm --filter @funnygame/game-number-hunt build
-          pnpm --filter @funnygame/game-follow-pattern build
-          pnpm --filter @funnygame/game-where-did-it-go build
-          pnpm --filter @funnygame/game-watch-and-judge build
-          pnpm --filter @funnygame/game-moving-maze build
-          pnpm --filter @funnygame/game-tile-match build
-          pnpm --filter @funnygame/game-smart-trap build
+          pnpm --filter "./packages/**" build
 
       - name: Export Next.js for GitHub Pages
         run: pnpm --filter web build
