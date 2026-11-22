@@ -93,57 +93,115 @@ export function createDuelRoom(
 
 /**
  * Joins an existing room as a guest.
+ * Supports cross-device real-time discovery over Supabase Realtime Channels.
  */
 export async function joinDuelRoom(
   roomCode: string,
-  guest: DuelPlayer
+  guest: DuelPlayer,
+  timeoutMs = 5000
 ): Promise<DuelRoomState | null> {
   const cleanCode = roomCode.trim().toUpperCase();
   let room = getDuelRoomLocal(cleanCode);
 
-  // If not found locally, attempt to fetch from Supabase
-  if (!room) {
-    try {
-      const supabase = getSupabaseBrowserClient();
-      const { data } = await supabase
-        .from('duel_rooms')
-        .select('*')
-        .eq('room_code', cleanCode)
-        .maybeSingle();
-
-      if (data && data.room_state) {
-        room = data.room_state as DuelRoomState;
-      }
-    } catch {
-      // ignore
+  // 1. If found locally (same device or reconnecting host)
+  if (room) {
+    if (room.host.id === guest.id) {
+      return room;
     }
-  }
-
-  if (!room) {
-    return null;
-  }
-
-  if (room.host.id === guest.id) {
-    // Reconnecting as host
+    if (room.guest && room.guest.id !== guest.id) {
+      return room;
+    }
+    room.guest = guest;
+    if (room.status === 'WAITING_FOR_OPPONENT') {
+      room.status = 'DRAFTING';
+      room.draft.turnExpiresAt = Date.now() + 15000;
+    }
+    room.updatedAt = Date.now();
+    saveDuelRoomLocal(room);
+    broadcastDuelRoom(room);
     return room;
   }
 
-  if (room.guest && room.guest.id !== guest.id) {
-    // Room already has two players
-    return room;
-  }
+  // 2. Cross-device real-time handshake over Supabase Channel
+  return new Promise<DuelRoomState | null>((resolve) => {
+    let resolved = false;
+    let pingInterval: any = null;
+    const supabase = getSupabaseBrowserClient();
+    const channelName = `duel_room:${cleanCode}`;
+    const channel = supabase.channel(channelName);
 
-  // Set guest and move to drafting
-  room.guest = guest;
-  if (room.status === 'WAITING_FOR_OPPONENT') {
-    room.status = 'DRAFTING';
-    room.draft.turnExpiresAt = Date.now() + 15000;
-  }
-  room.updatedAt = Date.now();
+    const cleanup = () => {
+      if (pingInterval) clearInterval(pingInterval);
+      try {
+        supabase.removeChannel(channel);
+      } catch {
+        // ignore
+      }
+    };
 
-  saveDuelRoomLocal(room);
-  broadcastDuelRoom(room);
-  return room;
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        cleanup();
+        const fallback = getDuelRoomLocal(cleanCode);
+        resolve(fallback);
+      }
+    }, timeoutMs);
+
+    channel
+      .on('broadcast', { event: 'room_state' }, (msg: any) => {
+        if (msg?.payload && msg.payload.roomId === cleanCode) {
+          const remote = msg.payload as DuelRoomState;
+          if (
+            remote.status === 'WAITING_FOR_OPPONENT' ||
+            !remote.guest ||
+            remote.guest.id === guest.id
+          ) {
+            remote.guest = guest;
+            if (remote.status === 'WAITING_FOR_OPPONENT') {
+              remote.status = 'DRAFTING';
+              remote.draft.turnExpiresAt = Date.now() + 15000;
+            }
+            remote.updatedAt = Date.now();
+          }
+
+          saveDuelRoomLocal(remote);
+          broadcastDuelRoom(remote);
+
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            cleanup();
+            resolve(remote);
+          }
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          const sendPing = async () => {
+            if (resolved) return;
+            try {
+              await channel.send({
+                type: 'broadcast',
+                event: 'guest_join_req',
+                payload: { roomCode: cleanCode, guest },
+              });
+              await channel.send({
+                type: 'broadcast',
+                event: 'ping_room',
+                payload: { roomCode: cleanCode },
+              });
+            } catch {
+              // ignore
+            }
+          };
+
+          await sendPing();
+          // Repeat ping every 750ms until host responds or timeout
+          pingInterval = setInterval(sendPing, 750);
+        }
+      });
+  });
 }
 
 /**
@@ -432,10 +490,43 @@ export function subscribeToDuelRoom(
     const supabase = getSupabaseBrowserClient();
     channel = supabase
       .channel(`duel_room:${cleanId}`)
-      .on('broadcast', { event: 'room_state' }, (payload: any) => {
-        if (payload && payload.payload && payload.payload.roomId === cleanId) {
-          saveDuelRoomLocal(payload.payload);
-          onUpdate(payload.payload);
+      .on('broadcast', { event: 'room_state' }, (msg: any) => {
+        if (msg?.payload && msg.payload.roomId === cleanId) {
+          const remote = msg.payload as DuelRoomState;
+          const current = getDuelRoomLocal(cleanId);
+          if (!current || remote.updatedAt >= current.updatedAt) {
+            saveDuelRoomLocal(remote);
+            onUpdate(remote);
+          }
+        }
+      })
+      .on('broadcast', { event: 'guest_join_req' }, (msg: any) => {
+        if (msg?.payload && msg.payload.guest && msg.payload.roomCode === cleanId) {
+          const current = getDuelRoomLocal(cleanId);
+          if (
+            current &&
+            (current.status === 'WAITING_FOR_OPPONENT' ||
+              !current.guest ||
+              current.guest.id === msg.payload.guest.id)
+          ) {
+            current.guest = msg.payload.guest;
+            if (current.status === 'WAITING_FOR_OPPONENT') {
+              current.status = 'DRAFTING';
+              current.draft.turnExpiresAt = Date.now() + 15000;
+            }
+            current.updatedAt = Date.now();
+            saveDuelRoomLocal(current);
+            broadcastDuelRoom(current);
+            onUpdate(current);
+          }
+        }
+      })
+      .on('broadcast', { event: 'ping_room' }, (msg: any) => {
+        if (msg?.payload && msg.payload.roomCode === cleanId) {
+          const current = getDuelRoomLocal(cleanId);
+          if (current) {
+            broadcastDuelRoom(current);
+          }
         }
       })
       .subscribe();
@@ -443,11 +534,15 @@ export function subscribeToDuelRoom(
     // ignore
   }
 
-  // 3. Fallback polling for mobile connections (every 2s)
+  // 3. Fallback polling & Host Heartbeat
   const pollTimer = setInterval(async () => {
     const local = getDuelRoomLocal(cleanId);
     if (local) {
       onUpdate(local);
+      // If waiting for opponent, broadcast heartbeat so any joining guest gets the room immediately
+      if (local.status === 'WAITING_FOR_OPPONENT') {
+        broadcastDuelRoom(local);
+      }
     }
     try {
       const supabase = getSupabaseBrowserClient();

@@ -53,6 +53,7 @@ function DuelTournamentContent() {
   const [joinCodeInput, setJoinCodeInput] = useState<string>('');
   const [joinError, setJoinError] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
 
   // Draft phase timer
   const [timeLeft, setTimeLeft] = useState<number>(15);
@@ -74,18 +75,32 @@ function DuelTournamentContent() {
   const mySide: PlayerSide = isHost ? 'host' : 'guest';
   const isMyTurn = room?.status === 'DRAFTING' && room.draft.currentTurn === mySide;
 
-  // 1. Check URL for direct room invite (/duel?room=LY-XXXX)
+  // 1. Check URL for direct room invite (/duel/?room=LY-XXXX)
   useEffect(() => {
     const queryRoom = searchParams.get('room');
     if (queryRoom) {
       const code = queryRoom.trim().toUpperCase();
-      joinDuelRoom(code, { ...currentPlayer, isHost: false }).then((joined) => {
-        if (joined) setRoom(joined);
-        else {
-          const local = getDuelRoomLocal(code);
-          if (local) setRoom(local);
-        }
-      });
+      setIsJoining(true);
+      setJoinError(null);
+      joinDuelRoom(code, { ...currentPlayer, isHost: false }, 5000)
+        .then((joined) => {
+          if (joined) {
+            setRoom(joined);
+          } else {
+            const local = getDuelRoomLocal(code);
+            if (local) {
+              setRoom(local);
+            } else {
+              setJoinError(`لم يتم العثور على الغرفة (${code}). تأكد أن المضيف فاتح اللعبة حالياً.`);
+            }
+          }
+        })
+        .catch(() => {
+          setJoinError('تعذر الاتصال بالغرفة عبر الإنترنت.');
+        })
+        .finally(() => {
+          setIsJoining(false);
+        });
     }
   }, [searchParams, currentPlayer]);
 
@@ -146,21 +161,62 @@ function DuelTournamentContent() {
       return;
     }
 
-    const joined = await joinDuelRoom(code, { ...currentPlayer, isHost: false });
-    if (joined) {
-      setRoom(joined);
-    } else {
-      setJoinError('لم يتم العثور على الغرفة أو أنها غير متاحة حالياً.');
+    setIsJoining(true);
+    try {
+      const joined = await joinDuelRoom(code, { ...currentPlayer, isHost: false }, 5000);
+      if (joined) {
+        setRoom(joined);
+      } else {
+        setJoinError(`لم يتم العثور على الغرفة (${code}). تأكد أن المضيف فاتح اللعبة حالياً.`);
+      }
+    } catch {
+      setJoinError('تعذر الاتصال بالغرفة، يرجى المحاولة مرة أخرى.');
+    } finally {
+      setIsJoining(false);
     }
   };
 
+  // Helper to generate the exact full URL with GitHub Pages basePath and trailing slash
+  const getInviteUrl = () => {
+    if (!room) return '';
+    const origin = window.location.origin;
+    const path = window.location.pathname;
+    const basePrefix = path.includes('/FunnyGame') ? '/FunnyGame' : '';
+    return `${origin}${basePrefix}/duel/?room=${room.roomId}`;
+  };
+
   // Action: Copy Invite Link
-  const handleCopyInvite = () => {
-    if (!room) return;
-    const url = `${window.location.origin}/duel?room=${room.roomId}`;
-    navigator.clipboard.writeText(url);
+  const handleCopyInvite = async () => {
+    const url = getInviteUrl();
+    if (!url) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      }
+    } catch {
+      // ignore
+    }
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  // Action: Share via Web Share API (WhatsApp, Messenger, etc.)
+  const handleShareInvite = async () => {
+    const url = getInviteUrl();
+    if (!url || !room) return;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'تحدي ثنائي في FunnyGame! ⚔️',
+          text: `تعال تحدااني في بطولة التحدي الثنائي 1v1! رمز الغرفة: ${room.roomId}`,
+          url,
+        });
+        return;
+      } catch {
+        // Fallback to copy if dismissed or cancelled
+      }
+    }
+    handleCopyInvite();
   };
 
   // Action: Pick Game during Draft
@@ -299,6 +355,12 @@ function DuelTournamentContent() {
               <span>🔑</span>
               <span>عندك كود دعوة من صاحبك؟</span>
             </h3>
+            {isJoining && (
+              <div className="p-2.5 mb-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 animate-pulse">
+                <span className="animate-spin text-base">⏳</span>
+                <span>جاري الاتصال بالغرفة عبر السيرفر...</span>
+              </div>
+            )}
             <div className="flex gap-2">
               <input
                 type="text"
@@ -306,14 +368,16 @@ function DuelTournamentContent() {
                 value={joinCodeInput}
                 onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
                 maxLength={8}
-                className="flex-1 bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-center text-sm font-black text-amber-300 placeholder:text-slate-600 focus:outline-none focus:border-amber-400 uppercase tracking-widest"
+                disabled={isJoining}
+                className="flex-1 bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-center text-sm font-black text-amber-300 placeholder:text-slate-600 focus:outline-none focus:border-amber-400 uppercase tracking-widest disabled:opacity-50"
               />
               <button
                 type="button"
                 onClick={handleJoinRoom}
-                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-black text-xs rounded-xl border border-white/10 transition-all cursor-pointer"
+                disabled={isJoining}
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-black text-xs rounded-xl border border-white/10 transition-all cursor-pointer disabled:opacity-50"
               >
-                انضمام
+                {isJoining ? 'جاري الاتصال...' : 'انضمام'}
               </button>
             </div>
             {joinError && (
@@ -357,16 +421,26 @@ function DuelTournamentContent() {
             <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
               رمز الغرفة الرسمي
             </div>
-            <div className="text-4xl font-black text-amber-300 tracking-wider font-mono my-2">
+            <div className="text-4xl font-black text-amber-300 tracking-wider font-mono my-2 select-all">
               {room.roomId}
             </div>
-            <button
-              type="button"
-              onClick={handleCopyInvite}
-              className="mt-3 w-full py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
-            >
-              <span>{isCopied ? 'تم نسخ الرابط! ✅' : 'نسخ رابط الدعوة المباشر 🔗'}</span>
-            </button>
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <button
+                type="button"
+                onClick={handleShareInvite}
+                className="py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+              >
+                <span>📲</span>
+                <span>مشاركة الرابط</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyInvite}
+                className="py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-black text-xs rounded-xl border border-white/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>{isCopied ? 'تم النسخ! ✅' : 'نسخ الرابط 🔗'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Host identity */}
