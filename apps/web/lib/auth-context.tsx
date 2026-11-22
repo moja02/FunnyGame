@@ -3,6 +3,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient } from './supabase-browser';
+import {
+  getActiveUserId,
+  getUserFriends,
+  setUserFriends,
+  purgeLegacyUnscopedStorage,
+} from './storage-helpers';
 
 export interface PlayerProfile {
   id: string;
@@ -104,6 +110,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let storedFriends: string[] = [];
 
     if (typeof window !== 'undefined') {
+      purgeLegacyUnscopedStorage();
+
       const storedId = localStorage.getItem('fg_guest_id');
       if (storedId) guestId = storedId;
       else localStorage.setItem('fg_guest_id', guestId);
@@ -124,12 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       guestCityName = localStorage.getItem('fg_guest_city_name') || undefined;
       guestCityUpdatedAt = localStorage.getItem('fg_guest_city_updated_at') || undefined;
 
-      try {
-        const rawFriends = localStorage.getItem('fg_friends');
-        if (rawFriends) storedFriends = JSON.parse(rawFriends);
-      } catch {
-        storedFriends = [];
-      }
+      storedFriends = getUserFriends(guestId);
     } else {
       guestNick = generateRandomGuestNickname();
     }
@@ -208,6 +211,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!isRealCloudUser(authUser)) return;
 
     setUser(authUser);
+    purgeLegacyUnscopedStorage();
     const supabase = getSupabaseBrowserClient();
 
     try {
@@ -232,11 +236,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let friendsArr: string[] = [];
         if (Array.isArray(data.friends)) {
           friendsArr = data.friends;
-        } else if (typeof window !== 'undefined') {
-          const raw = localStorage.getItem('fg_friends');
-          if (raw) {
-            try { friendsArr = JSON.parse(raw); } catch { friendsArr = []; }
-          }
+          setUserFriends(authUser.id, friendsArr);
+        } else {
+          friendsArr = getUserFriends(authUser.id);
         }
 
         setProfile({
@@ -439,6 +441,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await supabase.auth.signOut();
       if (typeof window !== 'undefined') {
         localStorage.removeItem('sb-wiulcvbvpifpxmuxdtus-auth-token');
+        purgeLegacyUnscopedStorage();
       }
     } catch (err) {
       console.warn('Sign out notice:', err);
@@ -452,12 +455,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         generateRandomGuestNickname();
       const guestAv =
         (typeof window !== 'undefined' && localStorage.getItem('fg_guest_avatar')) || '⚡';
+      const guestFriends = getUserFriends(guestId);
 
       setProfile({
         id: guestId,
         nickname: guestNick,
         avatar: guestAv,
-        friends: [],
+        friends: guestFriends,
         isGuest: true,
       });
     }
@@ -611,10 +615,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const updated = [...currentFriends, cleanId];
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('fg_friends', JSON.stringify(updated));
-    }
+    const activeId = getActiveUserId(profile, user);
+    setUserFriends(activeId, updated);
 
     setProfile((prev) => ({ ...prev, friends: updated }));
 
@@ -639,10 +641,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const removeFriend = async (friendId: string): Promise<boolean> => {
     const currentFriends = profile.friends || [];
     const updated = currentFriends.filter((id) => id !== friendId);
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('fg_friends', JSON.stringify(updated));
-    }
+    const activeId = getActiveUserId(profile, user);
+    setUserFriends(activeId, updated);
 
     setProfile((prev) => ({ ...prev, friends: updated }));
 

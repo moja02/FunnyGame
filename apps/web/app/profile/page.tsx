@@ -7,6 +7,15 @@ import { CitySelectModal } from '../components/CitySelectModal';
 import { useAuth } from '@/lib/auth-context';
 import { getCityById, LIBYA_REGIONS } from '@funnygame/game-core';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import {
+  getActiveUserId,
+  getUserPB,
+  setUserPB,
+  getUserTotalGames,
+  setUserTotalGames,
+  getUserTotalPoints,
+  getUserStreak,
+} from '@/lib/storage-helpers';
 
 const avatars = ['⚡', '👑', '🎯', '🦁', '🤖', '🐱', '🦊', '🚀', '🔥', '💎', '🌟', '🏆'];
 
@@ -71,28 +80,30 @@ export default function ProfilePage() {
     setSelectedAvatar(profile.avatar);
   }, [profile.nickname, profile.avatar]);
 
-  // Load player stats from localStorage and Supabase on mount
+  // Load player stats from account-scoped storage and Supabase on mount/auth switch
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Scan all 13 games
-    const records = ALL_13_GAMES.map((g) => {
-      const pb = Number(localStorage.getItem(`fg_pb_${g.id}`) || 0);
+    const activeId = getActiveUserId(profile, user);
+
+    // Scan all 13 games for active user's records
+    const initialRecords = ALL_13_GAMES.map((g) => {
+      const pb = getUserPB(activeId, g.id);
       return { ...g, pb };
     });
-    setGameRecords(records);
+    setGameRecords(initialRecords);
 
-    const played = records.filter((r) => r.pb > 0);
+    const played = initialRecords.filter((r) => r.pb > 0);
     setPlayedGamesCount(played.length);
 
-    const maxScore = records.reduce((max, r) => Math.max(max, r.pb), 0);
+    const maxScore = initialRecords.reduce((max, r) => Math.max(max, r.pb), 0);
     setHighestScore(maxScore);
 
-    const storedTotalPoints = Number(localStorage.getItem('fg_total_points') || 0);
-    const sumPoints = storedTotalPoints > 0 ? storedTotalPoints : records.reduce((sum, r) => sum + r.pb, 0);
+    const storedTotalPoints = getUserTotalPoints(activeId);
+    const sumPoints = storedTotalPoints > 0 ? storedTotalPoints : initialRecords.reduce((sum, r) => sum + r.pb, 0);
     setCareerPoints(sumPoints);
 
-    let totalG = Number(localStorage.getItem('fg_total_games') || 0);
+    let totalG = getUserTotalGames(activeId);
     if (totalG === 0 && played.length > 0) {
       totalG = played.length;
     }
@@ -100,22 +111,24 @@ export default function ProfilePage() {
 
     // Streak verification
     const todayStr = new Date().toISOString().split('T')[0] || '';
-    const lastStreakDate = localStorage.getItem('fg_last_streak_date');
-    let streak = Number(localStorage.getItem('fg_streak_days') || 0);
+    const { days: streak, lastDate: lastStreakDate } = getUserStreak(activeId);
+    let activeStreak = streak;
 
     if (lastStreakDate) {
       const lastDate = new Date(lastStreakDate);
       const today = new Date(todayStr);
       const diffDays = Math.round((today.getTime() - lastDate.getTime()) / (1000 * 3600 * 24));
       if (diffDays > 1) {
-        streak = 0; // broken streak if more than 1 day skipped
+        activeStreak = 0; // broken streak if more than 1 day skipped
       }
     }
-    setStreakDays(streak);
+    setStreakDays(activeStreak);
 
-    // If logged into cloud, fetch Supabase server stats
+    // If logged into cloud, fetch authoritative Supabase server stats for this user
     if (!profile.isGuest && user?.id) {
       const supabase = getSupabaseBrowserClient();
+
+      // 1. Fetch profile-level aggregates
       supabase
         .from('profiles')
         .select('total_games, wins')
@@ -126,6 +139,7 @@ export default function ProfilePage() {
             if (data) {
               if (data.total_games && data.total_games > totalG) {
                 setTotalGames(data.total_games);
+                setUserTotalGames(activeId, data.total_games);
               }
               if (data.wins && data.wins > maxScore) {
                 setHighestScore(data.wins);
@@ -134,8 +148,45 @@ export default function ProfilePage() {
           },
           () => {}
         );
+
+      // 2. Fetch user's individual game personal bests from verified game_runs
+      supabase
+        .from('game_runs')
+        .select('game_id, score')
+        .eq('user_id', user.id)
+        .then(
+          ({ data: runs }) => {
+            if (runs && runs.length > 0) {
+              const bestByGame: Record<string, number> = {};
+              for (const r of runs) {
+                if (r.game_id && typeof r.score === 'number') {
+                  bestByGame[r.game_id] = Math.max(bestByGame[r.game_id] || 0, r.score);
+                }
+              }
+
+              const updatedRecords = ALL_13_GAMES.map((g) => {
+                const cloudPb = bestByGame[g.id] || 0;
+                const localPb = getUserPB(activeId, g.id);
+                const pb = Math.max(cloudPb, localPb);
+                if (pb > 0) {
+                  setUserPB(activeId, g.id, pb);
+                }
+                return { ...g, pb };
+              });
+
+              setGameRecords(updatedRecords);
+              const playedCount = updatedRecords.filter((r) => r.pb > 0).length;
+              setPlayedGamesCount(playedCount);
+              const bestOverall = updatedRecords.reduce((m, r) => Math.max(m, r.pb), 0);
+              setHighestScore((prev) => Math.max(prev, bestOverall));
+              const calculatedPoints = updatedRecords.reduce((s, r) => s + r.pb, 0);
+              setCareerPoints((prev) => Math.max(prev, calculatedPoints));
+            }
+          },
+          () => {}
+        );
     }
-  }, [profile.isGuest, user?.id]);
+  }, [profile, user]);
 
   const handleSave = async () => {
     setIsSaving(true);

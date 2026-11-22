@@ -6,6 +6,20 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 import {
+  getActiveUserId,
+  getUserPB,
+  setUserPB,
+  getUserTotalGames,
+  setUserTotalGames,
+  getUserGamePlays,
+  setUserGamePlays,
+  getUserTotalPoints,
+  setUserTotalPoints,
+  getUserStreak,
+  setUserStreak,
+  setUserDailyResult,
+} from '@/lib/storage-helpers';
+import {
   clientRegistry,
   createRng,
   calculateQuestionScore,
@@ -406,15 +420,18 @@ export default function PlayClient({ gameId }: PlayClientProps) {
   const isLockedRef = useRef(false);
   const handleAnswerRef = useRef<(answer: any | null) => void>(() => {});
 
-  // Load personal best on mount
+  // Load personal best on mount or when active user changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(`fg_pb_${gameId}`);
-      if (stored) {
-        setPersonalBest(Number(stored));
+      const activeId = getActiveUserId(profile, user);
+      const stored = getUserPB(activeId, gameId);
+      if (stored > 0) {
+        setPersonalBest(stored);
+      } else {
+        setPersonalBest(0);
       }
     }
-  }, [gameId]);
+  }, [gameId, profile, user]);
 
   // Stop timer animation on unmount
   useEffect(() => {
@@ -428,31 +445,33 @@ export default function PlayClient({ gameId }: PlayClientProps) {
   // Submit verified run to server
   const submitRun = useCallback(async (finalScore: number) => {
     const submittedAt = Date.now();
+    const activeUserId = getActiveUserId(profile, user);
+    const isDailyMode =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('mode') === 'daily';
+    const todayStr = new Date().toISOString().split('T')[0] || '';
 
-    // Update local personal best
+    // Update account-scoped personal best
     if (finalScore > personalBest) {
       setPersonalBest(finalScore);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`fg_pb_${gameId}`, finalScore.toString());
-      }
+      setUserPB(activeUserId, gameId, finalScore);
     }
 
-    // Update global personal stats in localStorage
+    // Update account-scoped personal stats in localStorage
     if (typeof window !== 'undefined') {
       try {
-        const currentTotal = Number(localStorage.getItem('fg_total_games') || 0);
-        localStorage.setItem('fg_total_games', (currentTotal + 1).toString());
+        const currentTotal = getUserTotalGames(activeUserId);
+        setUserTotalGames(activeUserId, currentTotal + 1);
 
-        const gamePlays = Number(localStorage.getItem(`fg_plays_${gameId}`) || 0);
-        localStorage.setItem(`fg_plays_${gameId}`, (gamePlays + 1).toString());
+        const gamePlays = getUserGamePlays(activeUserId, gameId);
+        setUserGamePlays(activeUserId, gameId, gamePlays + 1);
 
-        const currentPoints = Number(localStorage.getItem('fg_total_points') || 0);
-        localStorage.setItem('fg_total_points', (currentPoints + finalScore).toString());
+        const currentPoints = getUserTotalPoints(activeUserId);
+        setUserTotalPoints(activeUserId, currentPoints + finalScore);
 
         // Update streak
-        const todayStr = new Date().toISOString().split('T')[0] || '';
-        const lastStreakDate = localStorage.getItem('fg_last_streak_date');
-        let streak = Number(localStorage.getItem('fg_streak_days') || 0);
+        const { days: lastStreakDays, lastDate: lastStreakDate } = getUserStreak(activeUserId);
+        let streak = lastStreakDays;
 
         if (!lastStreakDate) {
           streak = 1;
@@ -466,12 +485,10 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             streak = 1;
           }
         }
-        localStorage.setItem('fg_streak_days', streak.toString());
-        localStorage.setItem('fg_last_streak_date', todayStr);
+        setUserStreak(activeUserId, streak, todayStr);
 
-        // Daily challenge result tracking
-        const sp = new URLSearchParams(window.location.search);
-        if (sp.get('mode') === 'daily') {
+        // Daily challenge result tracking (strictly scoped to active user)
+        if (isDailyMode) {
           const dailyRecord = {
             gameId,
             score: finalScore,
@@ -479,7 +496,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             date: todayStr,
             timestamp: submittedAt
           };
-          localStorage.setItem(`fg_daily_result_${todayStr}`, JSON.stringify(dailyRecord));
+          setUserDailyResult(activeUserId, todayStr, dailyRecord);
         }
       } catch (err) {
         console.warn('Local stats storage notice:', err);
@@ -487,8 +504,8 @@ export default function PlayClient({ gameId }: PlayClientProps) {
     }
 
     // Submit verified run to server if registered cloud user
-    const activeUserId = user?.id || (profile.isGuest ? null : profile.id);
-    if (!profile.isGuest && activeUserId) {
+    const cloudUserId = user?.id || (profile.isGuest ? null : profile.id);
+    if (!profile.isGuest && cloudUserId) {
       // 1. Try server API route (when running with Next server)
       try {
         await fetch('/api/runs/submit', {
@@ -497,6 +514,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
           body: JSON.stringify({
             runId: runIdRef.current || `local_${Date.now()}`,
             gameId,
+            mode: isDailyMode ? 'daily' : 'free',
             seed: seedRef.current,
             answers: answersRef.current,
             startedAt: startedAtRef.current,
@@ -515,7 +533,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         const { data: currentProf } = await supabase
           .from('profiles')
           .select('total_games, wins')
-          .eq('id', activeUserId)
+          .eq('id', cloudUserId)
           .maybeSingle();
 
         const currentTotal = Number(currentProf?.total_games || 0);
@@ -529,17 +547,17 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             wins: newBest,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', activeUserId);
+          .eq('id', cloudUserId);
       } catch (profErr) {
         console.warn('Profile score sync notice:', profErr);
       }
 
-      // Also record to game_runs table
+      // Also record to game_runs table with correct mode ('daily' vs 'free')
       try {
         const { error: fullErr } = await supabase.from('game_runs').insert({
-          user_id: activeUserId,
+          user_id: cloudUserId,
           game_id: gameId,
-          mode: 'free',
+          mode: isDailyMode ? 'daily' : 'free',
           seed: seedRef.current,
           score: finalScore,
           stage_reached: stageRef.current,
@@ -550,8 +568,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         // Fallback to essential columns existing in current schema if new columns not yet migrated
         if (fullErr) {
           await supabase.from('game_runs').insert({
-            user_id: activeUserId,
+            user_id: cloudUserId,
             game_id: gameId,
+            mode: isDailyMode ? 'daily' : 'free',
             score: finalScore,
             stage_reached: stageRef.current,
           });
@@ -560,7 +579,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         console.warn('game_runs insert notice:', err);
       }
     }
-  }, [gameId, personalBest, profile.id, profile.isGuest, user?.id]);
+  }, [gameId, personalBest, profile, user]);
 
   // Start timer countdown
   const startTimer = useCallback(() => {

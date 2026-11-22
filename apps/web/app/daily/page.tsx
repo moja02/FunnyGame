@@ -5,6 +5,12 @@ import Link from 'next/link';
 import { BottomNav } from '../components/BottomNav';
 import { useAuth } from '@/lib/auth-context';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import {
+  getActiveUserId,
+  getUserStreak,
+  getUserDailyResult,
+  setUserDailyResult,
+} from '@/lib/storage-helpers';
 
 interface DailyGameInfo {
   id: string;
@@ -170,7 +176,7 @@ interface DailyLeaderboardEntry {
 }
 
 export default function DailyChallengePage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [todayStr, setTodayStr] = useState<string>('');
   const [dailySeed, setDailySeed] = useState<number>(1337);
   const [todayGame, setTodayGame] = useState<DailyGameInfo>(AVAILABLE_DAILY_GAMES[0]!);
@@ -196,22 +202,15 @@ export default function DailyChallengePage() {
     const seed = ((dateNum * 16807) % 2147483647) || 12345;
     setDailySeed(seed);
 
-    // Read stored streak & today's result
-    let storedRes: DailyResult | null = null;
-    if (typeof window !== 'undefined') {
-      const storedStreak = Number(localStorage.getItem('fg_streak_days') || 0);
-      setStreakDays(storedStreak);
+    // Active account identifier (ensures each account on the device has isolated attempts)
+    const activeUserId = getActiveUserId(profile, user);
 
-      const rawResult = localStorage.getItem(`fg_daily_result_${dateFormatted}`);
-      if (rawResult) {
-        try {
-          storedRes = JSON.parse(rawResult);
-          setTodayResult(storedRes);
-        } catch {
-          setTodayResult(null);
-        }
-      }
-    }
+    // Read stored streak & today's result scoped strictly to this account
+    const { days } = getUserStreak(activeUserId);
+    setStreakDays(days);
+
+    let storedRes = getUserDailyResult<DailyResult>(activeUserId, dateFormatted);
+    setTodayResult(storedRes);
 
     // Live countdown to midnight Tripoli time (UTC+2)
     const updateCountdown = () => {
@@ -238,7 +237,36 @@ export default function DailyChallengePage() {
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
 
-        // Query game_runs for mode = 'daily' recorded today
+        // If registered account, check Supabase for their cloud daily run today
+        if (!profile.isGuest && activeUserId) {
+          const { data: myCloudRun } = await supabase
+            .from('game_runs')
+            .select('id, game_id, score, stage_reached, created_at')
+            .eq('user_id', activeUserId)
+            .eq('mode', 'daily')
+            .gte('created_at', startOfToday.toISOString())
+            .order('score', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (myCloudRun) {
+            const cloudRecord: DailyResult = {
+              gameId: myCloudRun.game_id,
+              score: myCloudRun.score,
+              stage: myCloudRun.stage_reached || 1,
+              date: dateFormatted,
+              timestamp: new Date(myCloudRun.created_at).getTime()
+            };
+            storedRes = cloudRecord;
+            setTodayResult(cloudRecord);
+            setUserDailyResult(activeUserId, dateFormatted, cloudRecord);
+          } else if (!storedRes) {
+            // No cloud daily run recorded today for this registered account!
+            setTodayResult(null);
+          }
+        }
+
+        // Query game_runs for mode = 'daily' recorded today across all registered users
         const { data: runs, error } = await supabase
           .from('game_runs')
           .select('id, user_id, score, stage_reached, created_at')
@@ -281,7 +309,7 @@ export default function DailyChallengePage() {
                 city: p?.city_name || p?.city,
                 score: data.score,
                 stage: data.stage,
-                isCurrentUser: uId === profile.id
+                isCurrentUser: uId === activeUserId
               };
             })
             .sort((a, b) => b.score - a.score);
@@ -294,11 +322,11 @@ export default function DailyChallengePage() {
 
         // If current user is registered, has played today, but their entry isn't in DB yet:
         if (!profile.isGuest && storedRes) {
-          const exists = list.some((item) => item.userId === profile.id);
+          const exists = list.some((item) => item.userId === activeUserId);
           if (!exists) {
             list.push({
               rank: list.length + 1,
-              userId: profile.id,
+              userId: activeUserId,
               nickname: profile.nickname,
               avatar: profile.avatar || '⚡',
               city: profile.cityName,
@@ -323,7 +351,7 @@ export default function DailyChallengePage() {
     loadRealDailyLeaderboard();
 
     return () => clearInterval(timer);
-  }, [profile.id, profile.isGuest, profile.nickname, profile.avatar, profile.cityName]);
+  }, [profile, user]);
 
   return (
     <main className="flex-1 flex flex-col p-4 select-none pb-24 max-w-[480px] w-full mx-auto">

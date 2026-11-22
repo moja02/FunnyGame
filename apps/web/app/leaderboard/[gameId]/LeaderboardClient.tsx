@@ -6,6 +6,7 @@ import { BottomNav } from '../../components/BottomNav';
 import { CitySelectModal } from '../../components/CitySelectModal';
 import { useAuth } from '@/lib/auth-context';
 import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { getActiveUserId, getUserPB } from '@/lib/storage-helpers';
 
 interface LeaderboardEntry {
   rank: number;
@@ -51,7 +52,7 @@ const GAME_NAMES: Record<string, { title: string; ability: string; icon: string 
 };
 
 export default function LeaderboardClient({ gameId }: { gameId: string }) {
-  const { profile, updateCity, addFriend } = useAuth();
+  const { profile, user, updateCity, addFriend } = useAuth();
   const [tab, setTab] = useState<'global' | 'city' | 'friends'>('global');
   const [allEntries, setAllEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,13 +141,14 @@ export default function LeaderboardClient({ gameId }: { gameId: string }) {
             }
           }
 
-          // 3. Ensure current user's local verified run and city are reflected
+          // 3. Ensure current active user's local verified run and city are reflected
           if (!profile.isGuest && typeof window !== 'undefined') {
-            const localPb = Number(localStorage.getItem(`fg_pb_${gameId}`) || 0);
-            const userIndex = list.findIndex((e) => e.userId === profile.id);
+            const activeUserId = getActiveUserId(profile, user);
+            const localPb = getUserPB(activeUserId, gameId);
+            const userIndex = list.findIndex((e) => e.userId === activeUserId);
 
             // If local high score is higher than remote score, push it to Supabase immediately
-            if (localPb > 0 && profile.id) {
+            if (localPb > 0 && activeUserId) {
               const currentRemote = userIndex >= 0 ? list[userIndex]!.bestScore : 0;
               if (localPb > currentRemote) {
                 supabase
@@ -155,13 +157,13 @@ export default function LeaderboardClient({ gameId }: { gameId: string }) {
                     wins: localPb,
                     updated_at: new Date().toISOString(),
                   })
-                  .eq('id', profile.id)
+                  .eq('id', activeUserId)
                   .then(() => {});
 
                 supabase
                   .from('game_runs')
                   .insert({
-                    user_id: profile.id,
+                    user_id: activeUserId,
                     game_id: gameId,
                     score: localPb,
                     stage_reached: Math.max(1, Math.floor(localPb / 700)),
@@ -179,10 +181,10 @@ export default function LeaderboardClient({ gameId }: { gameId: string }) {
                 list[userIndex]!.bestScore = localPb;
                 list[userIndex]!.highestStage = Math.max(1, Math.floor(localPb / 700));
               }
-            } else if (localPb >= 0) {
+            } else if (localPb > 0) {
               list.push({
                 rank: list.length + 1,
-                userId: profile.id,
+                userId: activeUserId,
                 nickname: profile.nickname,
                 avatar: profile.avatar,
                 city: profile.cityName,
@@ -215,7 +217,7 @@ export default function LeaderboardClient({ gameId }: { gameId: string }) {
     return () => {
       isMounted = false;
     };
-  }, [gameId, profile.id, profile.isGuest, profile.nickname, profile.avatar, profile.cityName, profile.cityId]);
+  }, [gameId, profile, user]);
 
   // Tab-filtered entries
   const displayedEntries = useMemo(() => {
