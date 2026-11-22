@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { BottomNav } from '../components/BottomNav';
 import { useAuth } from '@/lib/auth-context';
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 interface DailyGameInfo {
   id: string;
@@ -157,6 +158,17 @@ interface DailyResult {
   timestamp: number;
 }
 
+interface DailyLeaderboardEntry {
+  rank: number;
+  userId: string;
+  nickname: string;
+  avatar: string;
+  city?: string;
+  score: number;
+  stage: number;
+  isCurrentUser: boolean;
+}
+
 export default function DailyChallengePage() {
   const { profile } = useAuth();
   const [todayStr, setTodayStr] = useState<string>('');
@@ -165,15 +177,17 @@ export default function DailyChallengePage() {
   const [todayResult, setTodayResult] = useState<DailyResult | null>(null);
   const [streakDays, setStreakDays] = useState<number>(0);
   const [countdown, setCountdown] = useState<string>('--:--:--');
+  const [dailyLeaderboard, setDailyLeaderboard] = useState<DailyLeaderboardEntry[]>([]);
+  const [isLeaderboardLoading, setIsLeaderboardLoading] = useState<boolean>(true);
 
   useEffect(() => {
     // Current date calculation
     const now = new Date();
-    const dateFormatted = now.toISOString().split('T')[0]!;
+    const dateFormatted = now.toISOString().split('T')[0] || '';
     setTodayStr(dateFormatted);
 
     // Deterministic game selection by date
-    const dateNum = parseInt(dateFormatted.replace(/-/g, ''), 10);
+    const dateNum = parseInt(dateFormatted.replace(/-/g, ''), 10) || 20261122;
     const gameIdx = Math.abs(dateNum % AVAILABLE_DAILY_GAMES.length);
     const selected = AVAILABLE_DAILY_GAMES[gameIdx] || AVAILABLE_DAILY_GAMES[0]!;
     setTodayGame(selected);
@@ -183,14 +197,16 @@ export default function DailyChallengePage() {
     setDailySeed(seed);
 
     // Read stored streak & today's result
+    let storedRes: DailyResult | null = null;
     if (typeof window !== 'undefined') {
       const storedStreak = Number(localStorage.getItem('fg_streak_days') || 0);
       setStreakDays(storedStreak);
 
-      const storedResult = localStorage.getItem(`fg_daily_result_${dateFormatted}`);
-      if (storedResult) {
+      const rawResult = localStorage.getItem(`fg_daily_result_${dateFormatted}`);
+      if (rawResult) {
         try {
-          setTodayResult(JSON.parse(storedResult));
+          storedRes = JSON.parse(rawResult);
+          setTodayResult(storedRes);
         } catch {
           setTodayResult(null);
         }
@@ -213,8 +229,101 @@ export default function DailyChallengePage() {
 
     updateCountdown();
     const timer = setInterval(updateCountdown, 1000);
+
+    // Fetch REAL registered users from Supabase for today's challenge
+    async function loadRealDailyLeaderboard() {
+      setIsLeaderboardLoading(true);
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+
+        // Query game_runs for mode = 'daily' recorded today
+        const { data: runs, error } = await supabase
+          .from('game_runs')
+          .select('id, user_id, score, stage_reached, created_at')
+          .eq('mode', 'daily')
+          .eq('game_id', selected.id)
+          .gte('created_at', startOfToday.toISOString())
+          .order('score', { ascending: false })
+          .limit(50);
+
+        let list: DailyLeaderboardEntry[] = [];
+
+        if (runs && runs.length > 0 && !error) {
+          const userIds = Array.from(new Set(runs.map((r) => r.user_id)));
+          const { data: profs } = await supabase
+            .from('profiles')
+            .select('id, nickname, avatar, city_name, city')
+            .in('id', userIds);
+
+          const profMap = new Map((profs || []).map((p) => [p.id, p]));
+
+          // Deduplicate: best score per user today
+          const userBestMap = new Map<string, { score: number; stage: number }>();
+          for (const run of runs) {
+            const existing = userBestMap.get(run.user_id);
+            if (!existing || run.score > existing.score) {
+              userBestMap.set(run.user_id, {
+                score: run.score,
+                stage: run.stage_reached || 1
+              });
+            }
+          }
+
+          const sorted = Array.from(userBestMap.entries())
+            .map(([uId, data]) => {
+              const p = profMap.get(uId);
+              return {
+                userId: uId,
+                nickname: p?.nickname || 'بطل مسجل',
+                avatar: p?.avatar || '⚡',
+                city: p?.city_name || p?.city,
+                score: data.score,
+                stage: data.stage,
+                isCurrentUser: uId === profile.id
+              };
+            })
+            .sort((a, b) => b.score - a.score);
+
+          list = sorted.map((item, idx) => ({
+            ...item,
+            rank: idx + 1
+          }));
+        }
+
+        // If current user is registered, has played today, but their entry isn't in DB yet:
+        if (!profile.isGuest && storedRes) {
+          const exists = list.some((item) => item.userId === profile.id);
+          if (!exists) {
+            list.push({
+              rank: list.length + 1,
+              userId: profile.id,
+              nickname: profile.nickname,
+              avatar: profile.avatar || '⚡',
+              city: profile.cityName,
+              score: storedRes.score,
+              stage: storedRes.stage,
+              isCurrentUser: true
+            });
+            list.sort((a, b) => b.score - a.score);
+            list = list.map((item, idx) => ({ ...item, rank: idx + 1 }));
+          }
+        }
+
+        setDailyLeaderboard(list);
+      } catch (err) {
+        console.warn('Real daily leaderboard fetch notice:', err);
+        setDailyLeaderboard([]);
+      } finally {
+        setIsLeaderboardLoading(false);
+      }
+    }
+
+    loadRealDailyLeaderboard();
+
     return () => clearInterval(timer);
-  }, []);
+  }, [profile.id, profile.isGuest, profile.nickname, profile.avatar, profile.cityName]);
 
   return (
     <main className="flex-1 flex flex-col p-4 select-none pb-24 max-w-[480px] w-full mx-auto">
@@ -300,79 +409,125 @@ export default function DailyChallengePage() {
         )}
       </div>
 
-      {/* Today's Leaderboard Preview */}
+      {/* Guest vs Registered Leaderboard Explanation Notice */}
+      {profile.isGuest ? (
+        <div className="p-4 bg-gradient-to-r from-amber-500/15 via-orange-950/20 to-slate-900 border-2 border-amber-400/40 rounded-3xl mb-4 shadow-lg text-right">
+          <div className="flex items-center gap-2 text-amber-300 font-black text-xs mb-1">
+            <span className="text-base">🏆</span>
+            <span>كيف تظهر في صدارة تحدي اليوم الموحد؟</span>
+          </div>
+          <p className="text-[11px] text-slate-300 leading-relaxed mb-3">
+            صدارة تحدي اليوم مخصصة <strong>للحسابات المسجلة فقط</strong> لضمان المنافسة النزيهة بين أبطال ليبيا. أنت الآن في <strong>وضع الزائر</strong>؛ نتيجتك مسجلة على جهازك فقط. سجّل حسابك مجاناً لتنافس رسمياً باسمك ومدينتك!
+          </p>
+          <Link
+            href="/profile"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-xs rounded-xl shadow transition-transform"
+          >
+            <span>سجّل حسابك لتدخل الصدارة 👤</span>
+            <span>◀</span>
+          </Link>
+        </div>
+      ) : (
+        <div className="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-2xl mb-4 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1.5 text-emerald-300 font-bold">
+            <span>🟢</span>
+            <span>حسابك مسجل ومؤهل رسمياً لدخول صدارة أبطال ليبيا!</span>
+          </div>
+          <span className="text-[10px] text-slate-400 font-bold">
+            {profile.cityName ? `📍 ${profile.cityName}` : 'بدون مدينة'}
+          </span>
+        </div>
+      )}
+
+      {/* Real Registered Daily Leaderboard */}
       <div className="p-4 bg-slate-900/90 border border-white/10 rounded-3xl shadow-lg">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-black text-slate-200 flex items-center gap-1.5">
-            <span>🏆</span>
-            <span>صدارة تحدي اليوم الموحد</span>
-          </h3>
-          <span className="text-[11px] font-bold text-amber-400">
-            {todayGame.title}
+          <div>
+            <h3 className="text-sm font-black text-slate-200 flex items-center gap-1.5">
+              <span>🏆</span>
+              <span>صدارة تحدي اليوم الموحد</span>
+            </h3>
+            <span className="text-[10px] text-slate-400 font-bold">
+              حسابات مسجلة رسمياً • لعبة: {todayGame.title}
+            </span>
+          </div>
+          <span className="text-[11px] font-black text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">
+            {dailyLeaderboard.length} أبطال
           </span>
         </div>
 
-        <div className="flex flex-col gap-2">
-          {/* Top 3 Daily Champions */}
-          <div className="p-3 bg-slate-950/60 rounded-2xl border border-amber-400/30 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-xl">🥇</span>
-              <div>
-                <div className="text-xs font-black text-white flex items-center gap-1.5">
-                  <span>الصقر_الليبي</span>
-                  <span className="text-[10px] text-slate-400 font-normal">📍 طرابلس</span>
-                </div>
-                <div className="text-[10px] text-emerald-400 font-bold">المرحلة 9 • سلسلة 5 أيام 🔥</div>
-              </div>
-            </div>
-            <div className="text-sm font-black text-amber-300 tabular-nums">
-              4,820
-            </div>
+        {isLeaderboardLoading ? (
+          <div className="py-8 text-center text-xs text-slate-400 animate-pulse">
+            جاري فحص نتائج الأبطال المسجلين لليوم... ⏳
           </div>
+        ) : dailyLeaderboard.length === 0 ? (
+          <div className="py-8 px-4 text-center flex flex-col items-center justify-center gap-2">
+            <span className="text-3xl">⏳</span>
+            <div className="text-xs font-black text-white">
+              لا توجد نتائج مسجلة لتحدي اليوم حتى الآن
+            </div>
+            <p className="text-[11px] text-slate-400 max-w-xs leading-relaxed">
+              كن أول لاعب مسجل يكمل تحدي اليوم ويفتتح الصدارة باسمه ومدينته! 🚀
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {dailyLeaderboard.map((entry) => {
+              const isTop1 = entry.rank === 1;
+              const isTop2 = entry.rank === 2;
+              const isTop3 = entry.rank === 3;
 
-          <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-700/60 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-xl">🥈</span>
-              <div>
-                <div className="text-xs font-black text-white flex items-center gap-1.5">
-                  <span>برق_بنغازي</span>
-                  <span className="text-[10px] text-slate-400 font-normal">📍 بنغازي</span>
-                </div>
-                <div className="text-[10px] text-emerald-400 font-bold">المرحلة 8 • سلسلة 3 أيام 🔥</div>
-              </div>
-            </div>
-            <div className="text-sm font-black text-slate-200 tabular-nums">
-              4,150
-            </div>
-          </div>
+              let rankBadge = (
+                <span className="text-xs font-bold text-slate-400 w-6 text-center">
+                  #{entry.rank}
+                </span>
+              );
+              if (isTop1) rankBadge = <span className="text-xl">🥇</span>;
+              else if (isTop2) rankBadge = <span className="text-xl">🥈</span>;
+              else if (isTop3) rankBadge = <span className="text-xl">🥉</span>;
 
-          <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-700/60 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-xl">🥉</span>
-              <div>
-                <div className="text-xs font-black text-white flex items-center gap-1.5">
-                  <span>الداهية_مصراتة</span>
-                  <span className="text-[10px] text-slate-400 font-normal">📍 مصراتة</span>
-                </div>
-                <div className="text-[10px] text-emerald-400 font-bold">المرحلة 7 • سلسلة يومين 🔥</div>
-              </div>
-            </div>
-            <div className="text-sm font-black text-amber-600/90 tabular-nums">
-              3,690
-            </div>
-          </div>
+              return (
+                <div
+                  key={entry.userId}
+                  className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
+                    entry.isCurrentUser
+                      ? 'bg-amber-500/15 border-amber-400/60 shadow-[0_0_15px_rgba(251,191,36,0.15)] ring-1 ring-amber-400/40'
+                      : isTop1
+                      ? 'bg-slate-950/70 border-amber-400/40'
+                      : 'bg-slate-950/50 border-white/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {rankBadge}
+                    <span className="text-xl">{entry.avatar || '⚡'}</span>
+                    <div>
+                      <div className="text-xs font-black text-white flex items-center gap-1.5">
+                        <span>{entry.nickname}</span>
+                        {entry.isCurrentUser && (
+                          <span className="px-1.5 py-0.2 bg-amber-400 text-slate-950 text-[9px] font-black rounded-md">
+                            أنت 🟢
+                          </span>
+                        )}
+                        {entry.city && (
+                          <span className="text-[10px] text-slate-400 font-normal">
+                            📍 {entry.city}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-bold">
+                        المرحلة {entry.stage}
+                      </div>
+                    </div>
+                  </div>
 
-          {/* Current User Row */}
-          <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-xs font-bold text-slate-300 px-2">
-            <div className="flex items-center gap-2">
-              <span className="text-base">{profile.avatar || '⚡'}</span>
-              <span>أنت ({profile.nickname})</span>
-            </div>
-            <div className="text-amber-300 font-black">
-              {todayResult ? `${todayResult.score.toLocaleString()} نقطة` : 'لم تلعب بعد ⏳'}
-            </div>
+                  <div className="text-sm font-black text-amber-300 tabular-nums">
+                    {entry.score.toLocaleString()}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        )}
       </div>
 
       {/* Bottom Sticky Navigation Bar */}
