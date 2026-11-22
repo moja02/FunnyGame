@@ -40,6 +40,9 @@ export default function DuelClient({ gameId }: DuelClientProps) {
         </div>
         <div className="flex justify-between items-center text-xs text-slate-500">
           <span>تحكم اللاعب 2</span>
+          <Link href="/duel" className="text-amber-400 hover:text-amber-300 font-bold">
+            بطولة التحدي الثنائي ⚔️
+          </Link>
           <Link href="/" className="text-slate-400 hover:text-white underline">خروج ✖</Link>
         </div>
       </div>

@@ -19,6 +19,8 @@ import {
   setUserStreak,
   setUserDailyResult,
 } from '@/lib/storage-helpers';
+import { getDuelRoomLocal, recordRoundScore } from '@/lib/duel/duel-service';
+import type { PlayerSide } from '@funnygame/game-core';
 import {
   clientRegistry,
   createRng,
@@ -392,6 +394,19 @@ export default function PlayClient({ gameId }: PlayClientProps) {
   const [combo, setCombo] = useState(0);
   const [personalBest, setPersonalBest] = useState(0);
   const [gameOverTaunt, setGameOverTaunt] = useState<string>('');
+  const [duelRoomId, setDuelRoomId] = useState<string | null>(null);
+  const [duelRound, setDuelRound] = useState<number>(1);
+
+  // Read URL query params for tournament/duel mode
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get('mode') === 'duel') {
+        setDuelRoomId(sp.get('roomId'));
+        setDuelRound(parseInt(sp.get('round') || '1', 10));
+      }
+    }
+  }, []);
 
   // Current question & timer
   const [currentQuestion, setCurrentQuestion] = useState<Question<any> | null>(null);
@@ -497,6 +512,21 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             timestamp: submittedAt
           };
           setUserDailyResult(activeUserId, todayStr, dailyRecord);
+        }
+
+        // Duel tournament result tracking
+        const sp = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const isDuelMode = sp?.get('mode') === 'duel';
+        const duelRoomId = sp?.get('roomId');
+        const duelRound = parseInt(sp?.get('round') || '1', 10);
+        const duelPlayer = (sp?.get('player') as PlayerSide) || 'host';
+
+        if (isDuelMode && duelRoomId) {
+          const room = getDuelRoomLocal(duelRoomId);
+          if (room) {
+            const timeMs = Math.max(1000, submittedAt - startedAtRef.current);
+            recordRoundScore(room, duelRound, duelPlayer, finalScore, timeMs);
+          }
         }
       } catch (err) {
         console.warn('Local stats storage notice:', err);
@@ -1008,6 +1038,13 @@ export default function PlayClient({ gameId }: PlayClientProps) {
       {/* 2. Briefing Screen */}
       {gameState === 'briefing' && (
         <div className="flex-1 flex flex-col items-center justify-center p-5 text-center">
+          {duelRoomId && (
+            <div className="mb-3 px-3 py-1.5 rounded-xl bg-amber-400/20 border border-amber-400/50 text-amber-300 text-xs font-black flex items-center gap-1.5 shadow-md">
+              <span>⚔️</span>
+              <span>جولة بطولة ثنائية • الغرفة {duelRoomId} • الجولة {duelRound}</span>
+            </div>
+          )}
+
           <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-2 border-amber-400 flex items-center justify-center text-5xl mb-4 shadow-[0_0_35px_rgba(254,202,87,0.35)]">
             {meta.icon}
           </div>
@@ -1105,7 +1142,26 @@ export default function PlayClient({ gameId }: PlayClientProps) {
 
       {/* 5. Game Over Result Screen */}
       {gameState === 'gameover' && (
-        <div className="flex-1 flex items-center justify-center p-4">
+        <div className="flex-1 flex flex-col items-center justify-center p-4">
+          {duelRoomId && (
+            <div className="w-full max-w-xs mb-4 p-4 rounded-2xl bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-rose-500/20 border-2 border-amber-400 text-center shadow-xl animate-bounce">
+              <div className="text-xs font-black text-amber-300 mb-1">
+                تم تسجيل نتيجتك في بطولة التحدي الثنائي! ⚔️
+              </div>
+              <div className="text-sm font-black text-white mb-3">
+                النقاط المحققة: {score.toLocaleString()} نقطة
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push(`/duel?room=${duelRoomId}`)}
+                className="w-full py-3 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>العودة لنتائج جولة التحدي ⚔️</span>
+                <span>◀</span>
+              </button>
+            </div>
+          )}
+
           <ResultScreen
             score={score}
             stageReached={stage}
@@ -1118,7 +1174,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
                 : `https://moja02.github.io/FunnyGame/play/${gameId}`
             }
             onPlayAgain={handleStartGame}
-            onGoHome={() => router.push('/')}
+            onGoHome={() => router.push(duelRoomId ? `/duel?room=${duelRoomId}` : '/')}
             onViewLeaderboard={() => router.push(`/leaderboard/${gameId}`)}
           />
         </div>

@@ -5,4 +5,5 @@ export * from './round-engine.js';
 export * from './reference-scores.js';
 export * from './server-registry.js';
 export * from './client-registry.js';
+export * from './duel-engine.js';
 export * from './data/libyaCities.js';

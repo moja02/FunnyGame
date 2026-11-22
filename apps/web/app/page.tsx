@@ -68,7 +68,7 @@ export default function HomePage() {
       </header>
 
       {/* Hero Daily Challenge Widget */}
-      <div className="mb-5">
+      <div className="mb-4">
         <Link
           href="/daily"
           className="p-4 sm:p-5 bg-gradient-to-br from-amber-500/20 via-orange-600/15 to-red-600/25 border-2 border-amber-400/60 rounded-3xl flex items-center justify-between shadow-xl hover:scale-[1.01] active:scale-98 transition-all"
@@ -86,6 +86,28 @@ export default function HomePage() {
             </p>
           </div>
           <div className="text-4xl sm:text-5xl pr-2">🏆</div>
+        </Link>
+      </div>
+
+      {/* Duel Tournament 1v1 Widget */}
+      <div className="mb-5">
+        <Link
+          href="/duel"
+          className="p-4 sm:p-5 bg-gradient-to-br from-indigo-900/40 via-purple-950/40 to-slate-950 border-2 border-indigo-400/60 rounded-3xl flex items-center justify-between shadow-2xl hover:scale-[1.01] active:scale-98 transition-all"
+        >
+          <div>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 text-slate-950">
+                حدث جديد ⚔️
+              </span>
+              <span className="text-xs text-indigo-300 font-bold">تحديات 1v1 • مرحلة الـ Draft</span>
+            </div>
+            <h3 className="text-lg font-black text-white">بطولة التحدي الثنائي</h3>
+            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+              اختر ألعابك بالتناوب ضد منافسك وتنافس ببذور موحدة 100% لخطف الكأس الذهبي!
+            </p>
+          </div>
+          <div className="text-4xl sm:text-5xl pr-2">⚔️</div>
         </Link>
       </div>
 
