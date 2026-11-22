@@ -88,11 +88,9 @@ describe('Complete Sequence Logic', () => {
           expect(payload.items[payload.missingIndex]!.isMissing).toBe(true);
 
           if (payload.sequenceType === 'number') {
-            // Ascending order guarantee for numbers
+            // Guarantee all 4 number choices are unique
             const nums = payload.choices.map((c) => c.numValue!);
-            for (let i = 0; i < nums.length - 1; i++) {
-              expect(nums[i]!).toBeLessThan(nums[i + 1]!);
-            }
+            expect(new Set(nums).size).toBe(4);
           }
 
           expect(payload.ruleHintAr).toBeTruthy();
@@ -100,6 +98,17 @@ describe('Complete Sequence Logic', () => {
           expect(payload.categoryAr).toBeTruthy();
         }
       }
+    });
+
+    it('distributes correct answers randomly across options (not locked to index 1 / option 2)', () => {
+      const indicesSeen = new Set<number>();
+      for (let seed = 1; seed <= 30; seed++) {
+        const rng = createRng(seed);
+        const payload = generateCompleteSequenceQuestion(rng, 1, seed);
+        indicesSeen.add(payload.correctChoiceIndex);
+      }
+      // Verifies that across 30 questions, correct answers appear in multiple different positions
+      expect(indicesSeen.size).toBeGreaterThanOrEqual(3);
     });
   });
 

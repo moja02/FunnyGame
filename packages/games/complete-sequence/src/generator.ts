@@ -207,9 +207,14 @@ export function generateCompleteSequenceQuestion(
       }
     }
 
-    // Convert set to array of 4 numbers and sort ASCENDING strictly
+    // Convert set to array of 4 numbers and shuffle with rng so correct answer is uniformly distributed among 1, 2, 3, 4
     const fourNumbers = Array.from(candidateSet).slice(0, 4);
-    fourNumbers.sort((a, b) => a - b);
+    for (let i = fourNumbers.length - 1; i > 0; i--) {
+      const j = Math.floor(rng.next() * (i + 1));
+      const temp = fourNumbers[i]!;
+      fourNumbers[i] = fourNumbers[j]!;
+      fourNumbers[j] = temp;
+    }
 
     const choices: SequenceChoice[] = fourNumbers.map((val, id) => ({
       id,

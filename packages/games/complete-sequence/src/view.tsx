@@ -360,17 +360,18 @@ export const CompleteSequenceView: React.FC<
             const isSelected = selectedChoiceId === choice.id;
             const isCorrect = choice.isCorrect;
 
-            let btnStyle =
-              'bg-slate-800/90 hover:bg-slate-700/90 text-white border-slate-700 hover:border-slate-500 shadow-md';
+            // All choices maintain the same uniform base background color
+            let btnStyle = 'bg-slate-800/90 border-slate-700 text-white shadow-md';
 
             if (isButtonLocked) {
               if (isCorrect) {
                 btnStyle =
-                  'bg-emerald-600/90 text-white border-emerald-400 ring-2 ring-emerald-400/80 shadow-[0_0_15px_rgba(16,185,129,0.5)]';
+                  'bg-slate-800/90 text-emerald-300 border-emerald-400 ring-2 ring-emerald-400/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]';
               } else if (isSelected) {
-                btnStyle = 'bg-rose-600/90 text-white border-rose-400 ring-2 ring-rose-400/80';
+                btnStyle =
+                  'bg-slate-800/90 text-rose-300 border-rose-400 ring-2 ring-rose-400/50 shadow-[0_0_15px_rgba(244,63,94,0.3)]';
               } else {
-                btnStyle = 'bg-slate-900/40 text-slate-600 border-slate-800/40 opacity-40';
+                btnStyle = 'bg-slate-800/90 text-slate-300 border-slate-700';
               }
             } else if (isEliminated) {
               btnStyle = 'bg-slate-900/30 text-slate-700 border-slate-900 cursor-not-allowed opacity-20';
@@ -378,11 +379,17 @@ export const CompleteSequenceView: React.FC<
 
             return (
               <button
-                key={choice.id}
+                key={`q-${question.index}-${choice.id}`}
                 type="button"
                 disabled={isButtonLocked || isEliminated || !introDismissed}
-                onPointerDown={() => handleSelectChoice(choice.id)}
-                className={`relative min-h-[64px] sm:min-h-[72px] rounded-2xl border-2 flex items-center justify-center font-black transition-all active:scale-[0.98] ${btnStyle}`}
+                onPointerDown={(e) => {
+                  e.currentTarget.blur();
+                  handleSelectChoice(choice.id);
+                }}
+                onClick={(e) => {
+                  e.currentTarget.blur();
+                }}
+                className={`relative min-h-[64px] sm:min-h-[72px] rounded-2xl border-2 flex items-center justify-center font-black transition-all active:scale-[0.98] active:bg-slate-700/60 focus:outline-none focus:ring-0 ${btnStyle}`}
               >
                 {/* Keyboard key badge */}
                 <span className="absolute top-1.5 right-2 text-[10px] font-bold text-slate-400 bg-black/40 px-1.5 py-0.5 rounded">
