@@ -74,10 +74,11 @@ export function createDuelRoom(
   mode: DuelMode,
   matchSize: MatchSize,
   host: DuelPlayer,
-  customCode?: string
+  customCode?: string,
+  guestPlayer?: DuelPlayer
 ): DuelRoomState {
-  if (host.isGuest) {
-    throw new Error('يجب تسجيل الدخول بحساب رسمي لإنشاء غرفة تحدي ثنائي.');
+  if (mode === 'online' && host.isGuest) {
+    throw new Error('يجب تسجيل الدخول بحساب رسمي لإنشاء غرفة تحدي ثنائي أونلاين.');
   }
 
   const roomId = customCode ? normalizeRoomCode(customCode) : generateRoomCode();
@@ -101,26 +102,28 @@ export function createDuelRoom(
     winner: 'tie',
   }));
 
+  const guest: DuelPlayer | null =
+    mode === 'local'
+      ? guestPlayer || {
+          id: 'local_player_2',
+          nickname: 'اللاعب 2',
+          avatar: '🦅',
+          isHost: false,
+        }
+      : null;
+
   const room: DuelRoomState = {
     roomId,
     mode,
     matchSize,
     status: mode === 'local' ? 'DRAFTING' : 'WAITING_FOR_OPPONENT',
     host,
-    guest:
-      mode === 'local'
-        ? {
-            id: 'local_player_2',
-            nickname: 'اللاعب 2 (المنافس)',
-            avatar: '🎯',
-            isHost: false,
-          }
-        : null,
+    guest,
     draft: {
       startingPlayer,
       currentTurn: startingPlayer,
       turnIndex: 0,
-      turnExpiresAt: Date.now() + 15000,
+      turnExpiresAt: mode === 'local' ? 0 : Date.now() + 15000,
       pickOrder,
       pickedGames: [],
     },
@@ -295,7 +298,7 @@ export function pickDraftGame(
       pickedGames: newPicked,
       turnIndex: nextTurnIndex,
       currentTurn: nextTurn,
-      turnExpiresAt: Date.now() + 15000,
+      turnExpiresAt: room.mode === 'local' ? 0 : Date.now() + 15000,
     },
     rounds: updatedRounds,
     currentRoundIndex: 0,
@@ -424,7 +427,7 @@ export function rematchDuelRoom(room: DuelRoomState): DuelRoomState {
       startingPlayer,
       currentTurn: startingPlayer,
       turnIndex: 0,
-      turnExpiresAt: Date.now() + 15000,
+      turnExpiresAt: room.mode === 'local' ? 0 : Date.now() + 15000,
       pickOrder,
       pickedGames: [],
     },

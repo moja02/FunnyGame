@@ -524,10 +524,17 @@ export default function PlayClient({ gameId }: PlayClientProps) {
         if (isDuelMode && duelRoomId) {
           const room = getDuelRoomLocal(duelRoomId);
           if (room) {
-            if (room.host.id === profile.id) {
-              duelPlayer = 'host';
-            } else if (room.guest?.id === profile.id) {
-              duelPlayer = 'guest';
+            if (room.mode === 'local') {
+              const pParam = sp?.get('player') as PlayerSide;
+              if (pParam === 'host' || pParam === 'guest') {
+                duelPlayer = pParam;
+              }
+            } else {
+              if (room.host.id === profile.id) {
+                duelPlayer = 'host';
+              } else if (room.guest?.id === profile.id) {
+                duelPlayer = 'guest';
+              }
             }
             const timeMs = Math.max(1000, submittedAt - startedAtRef.current);
             const updated = recordRoundScore(room, duelRound, duelPlayer, finalScore, timeMs);
