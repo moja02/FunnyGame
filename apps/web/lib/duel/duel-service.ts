@@ -9,8 +9,8 @@ import {
   evaluateDuelRound,
   evaluateDuelMatch,
 } from '@funnygame/game-core';
-import type { DuelMode, DuelPlayer, DuelRoomState } from './duel-types';
-export type { DuelMode, DuelPlayer, DuelRoomState } from './duel-types';
+import type { DuelMode, DuelPlayer, DuelRoomState, DuelStatus } from './duel-types';
+export type { DuelMode, DuelPlayer, DuelRoomState, DuelStatus } from './duel-types';
 import { getSupabaseBrowserClient } from '../supabase-browser';
 
 const CODE_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -338,19 +338,31 @@ export function recordRoundScore(
   const hasGuestSubmitted = updatedRound.guestTimeMs > 0 || updatedRound.guestRawScore > 0;
   const isBothDone = hasHostSubmitted && hasGuestSubmitted;
 
-  // Evaluate normalized scores & bonuses
-  const evaluated = evaluateDuelRound(
-    {
-      roundOrder,
-      gameId: updatedRound.gameId,
-      pickedBy: updatedRound.pickedBy,
-      seed: updatedRound.seed,
-    },
-    updatedRound.hostRawScore,
-    updatedRound.guestRawScore,
-    updatedRound.hostTimeMs,
-    updatedRound.guestTimeMs
-  );
+  let evaluated: DuelRoundResult;
+  if (isBothDone) {
+    evaluated = evaluateDuelRound(
+      {
+        roundOrder,
+        gameId: updatedRound.gameId,
+        pickedBy: updatedRound.pickedBy,
+        seed: updatedRound.seed,
+      },
+      updatedRound.hostRawScore,
+      updatedRound.guestRawScore,
+      updatedRound.hostTimeMs,
+      updatedRound.guestTimeMs
+    );
+  } else {
+    evaluated = {
+      ...updatedRound,
+      hostNormScore: 0,
+      guestNormScore: 0,
+      hostBonusScore: 0,
+      guestBonusScore: 0,
+      winner: 'tie',
+      banterText: '',
+    };
+  }
 
   const updatedRounds = [...room.rounds];
   updatedRounds[roundIdx] = evaluated;
@@ -366,6 +378,136 @@ export function recordRoundScore(
   saveDuelRoomLocal(updatedRoom);
   broadcastDuelRoom(updatedRoom);
   return updatedRoom;
+}
+
+/**
+ * Intelligently merges two room states across devices to ensure no player's submitted score is overwritten.
+ */
+export function mergeDuelRooms(current: DuelRoomState, remote: DuelRoomState): DuelRoomState {
+  if (!current) return remote;
+  if (!remote) return current;
+
+  // Status priority
+  const statusWeight: Record<DuelStatus, number> = {
+    WAITING_FOR_OPPONENT: 1,
+    DRAFTING: 2,
+    PLAYING_ROUND: 3,
+    ROUND_RESULT: 4,
+    COMPLETED: 5,
+  };
+
+  const guest = remote.guest || current.guest;
+
+  // Draft info: keep highest turn or picks
+  const currentPicks = current.draft?.pickedGames || [];
+  const remotePicks = remote.draft?.pickedGames || [];
+  const pickedGames = remotePicks.length >= currentPicks.length ? remotePicks : currentPicks;
+  const turnIndex = Math.max(current.draft?.turnIndex || 0, remote.draft?.turnIndex || 0);
+
+  const matchSize = current.matchSize || remote.matchSize || 2;
+  const currentRoundIndex = Math.max(current.currentRoundIndex || 0, remote.currentRoundIndex || 0);
+
+  // Merge each round's host and guest scores
+  const mergedRounds: DuelRoundResult[] = [];
+  for (let i = 0; i < matchSize; i++) {
+    const curR = current.rounds?.[i];
+    const remR = remote.rounds?.[i];
+
+    if (!curR && !remR) continue;
+    const baseR = curR || remR!;
+
+    const gameId = curR?.gameId || remR?.gameId || '';
+    const pickedBy = curR?.pickedBy || remR?.pickedBy || 'host';
+    const seed = curR?.seed || remR?.seed || 1000;
+
+    // Host submission
+    const curHostDone = (curR?.hostTimeMs ?? 0) > 0 || (curR?.hostRawScore ?? 0) > 0;
+    const remHostDone = (remR?.hostTimeMs ?? 0) > 0 || (remR?.hostRawScore ?? 0) > 0;
+    const hostRawScore = curHostDone ? curR!.hostRawScore : (remHostDone ? remR!.hostRawScore : 0);
+    const hostTimeMs = curHostDone ? curR!.hostTimeMs : (remHostDone ? remR!.hostTimeMs : 0);
+
+    // Guest submission
+    const curGuestDone = (curR?.guestTimeMs ?? 0) > 0 || (curR?.guestRawScore ?? 0) > 0;
+    const remGuestDone = (remR?.guestTimeMs ?? 0) > 0 || (remR?.guestRawScore ?? 0) > 0;
+    const guestRawScore = curGuestDone ? curR!.guestRawScore : (remGuestDone ? remR!.guestRawScore : 0);
+    const guestTimeMs = curGuestDone ? curR!.guestTimeMs : (remGuestDone ? remR!.guestTimeMs : 0);
+
+    const isBothDone = (hostTimeMs > 0 || hostRawScore > 0) && (guestTimeMs > 0 || guestRawScore > 0);
+
+    if (isBothDone) {
+      const evaluated = evaluateDuelRound(
+        { roundOrder: i + 1, gameId, pickedBy, seed },
+        hostRawScore,
+        guestRawScore,
+        hostTimeMs,
+        guestTimeMs
+      );
+      mergedRounds.push(evaluated);
+    } else {
+      mergedRounds.push({
+        ...baseR,
+        gameId,
+        pickedBy,
+        seed,
+        hostRawScore,
+        guestRawScore,
+        hostTimeMs,
+        guestTimeMs,
+        hostNormScore: 0,
+        guestNormScore: 0,
+        hostBonusScore: 0,
+        guestBonusScore: 0,
+        winner: 'tie',
+        banterText: '',
+      });
+    }
+  }
+
+  // Determine merged status
+  let mergedStatus: DuelStatus =
+    (statusWeight[remote.status] || 0) > (statusWeight[current.status] || 0)
+      ? remote.status
+      : current.status;
+
+  // Check if current round has both players finished
+  const curRound = mergedRounds[currentRoundIndex];
+  const curRoundBothDone =
+    curRound &&
+    ((curRound.hostTimeMs > 0 || curRound.hostRawScore > 0) &&
+     (curRound.guestTimeMs > 0 || curRound.guestRawScore > 0));
+
+  if (curRoundBothDone && mergedStatus === 'PLAYING_ROUND') {
+    mergedStatus = 'ROUND_RESULT';
+  }
+
+  // Check if all rounds done
+  const allRoundsDone =
+    mergedRounds.length === matchSize &&
+    mergedRounds.every(
+      (r) => (r.hostTimeMs > 0 || r.hostRawScore > 0) && (r.guestTimeMs > 0 || r.guestRawScore > 0)
+    );
+
+  let summary = current.summary || remote.summary;
+  if (allRoundsDone && (mergedStatus === 'COMPLETED' || currentRoundIndex + 1 >= matchSize && mergedStatus === 'ROUND_RESULT')) {
+    summary = evaluateDuelMatch(matchSize, mergedRounds);
+  }
+
+  return {
+    ...current,
+    status: mergedStatus,
+    guest,
+    matchSize,
+    draft: {
+      ...current.draft,
+      pickedGames,
+      turnIndex,
+      currentTurn: remote.draft?.currentTurn || current.draft?.currentTurn,
+    },
+    currentRoundIndex,
+    rounds: mergedRounds,
+    summary,
+    updatedAt: Math.max(current.updatedAt || 0, remote.updatedAt || 0, Date.now()),
+  };
 }
 
 /**
@@ -469,15 +611,82 @@ export function getActiveDuelId(): string | null {
 }
 
 /**
+ * Helper to reliably send broadcasts over Supabase Realtime channel.
+ * Automatically waits for subscription connection before sending if needed.
+ */
+export async function sendChannelBroadcast(
+  roomCode: string,
+  event: string,
+  payload: any
+): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const clean = normalizeRoomCode(roomCode);
+  const channel = getOrCreateDuelChannel(clean);
+
+  if (channel.state === 'joined') {
+    try {
+      await channel.send({ type: 'broadcast', event, payload });
+    } catch {
+      // ignore
+    }
+    return;
+  }
+
+  return new Promise<void>((resolve) => {
+    let done = false;
+    const timer = setTimeout(() => {
+      if (!done) {
+        done = true;
+        resolve();
+      }
+    }, 4000);
+
+    channel.subscribe(async (status: string) => {
+      if (status === 'SUBSCRIBED' && !done) {
+        done = true;
+        clearTimeout(timer);
+        try {
+          await channel.send({ type: 'broadcast', event, payload });
+        } catch {
+          // ignore
+        }
+        resolve();
+      }
+    });
+  });
+}
+
+/**
+ * Broadcasts a single round submission directly to the opponent.
+ */
+export function broadcastRoundScore(
+  roomId: string,
+  roundOrder: number,
+  playerSide: PlayerSide,
+  rawScore: number,
+  timeMs: number
+): void {
+  const cleanId = normalizeRoomCode(roomId);
+  sendChannelBroadcast(cleanId, 'round_score', {
+    roomCode: cleanId,
+    roundOrder,
+    playerSide,
+    rawScore,
+    timeMs,
+  });
+}
+
+/**
  * Cross-tab & Supabase Realtime Broadcast synchronization
  */
 export function broadcastDuelRoom(room: DuelRoomState): void {
   if (typeof window === 'undefined') return;
+  const cleanId = normalizeRoomCode(room.roomId);
 
   // 1. Cross-tab storage event
   try {
     window.dispatchEvent(
-      new CustomEvent('fg:duel_update', { detail: { roomId: room.roomId, room } })
+      new CustomEvent('fg:duel_update', { detail: { roomId: cleanId, room } })
     );
   } catch {
     // ignore
@@ -485,29 +694,7 @@ export function broadcastDuelRoom(room: DuelRoomState): void {
 
   // 2. Supabase Realtime broadcast channel
   if (room.mode === 'online') {
-    try {
-      const channel = getOrCreateDuelChannel(room.roomId);
-      channel.send({
-        type: 'broadcast',
-        event: 'room_state',
-        payload: room,
-      });
-
-      // Also persist to Supabase duel_rooms table if available
-      const supabase = getSupabaseBrowserClient();
-      supabase
-        .from('duel_rooms')
-        .upsert({
-          room_code: room.roomId,
-          status: room.status,
-          match_size: room.matchSize,
-          room_state: room,
-          updated_at: new Date().toISOString(),
-        })
-        .then(() => {}, () => {});
-    } catch {
-      // ignore
-    }
+    sendChannelBroadcast(cleanId, 'room_state', room);
   }
 }
 
@@ -540,9 +727,34 @@ export function subscribeToDuelRoom(
         if (msg?.payload && msg.payload.roomId === cleanId) {
           const remote = msg.payload as DuelRoomState;
           const current = getDuelRoomLocal(cleanId);
-          if (!current || remote.updatedAt >= current.updatedAt) {
+          if (!current) {
             saveDuelRoomLocal(remote);
             onUpdate(remote);
+            return;
+          }
+
+          // Merge room states without overwriting either player's scores
+          const merged = mergeDuelRooms(current, remote);
+          saveDuelRoomLocal(merged);
+          onUpdate(merged);
+
+          // If status transitioned to ROUND_RESULT, broadcast merged state back so opponent gets it immediately
+          if (merged.status !== current.status) {
+            broadcastDuelRoom(merged);
+          }
+        }
+      })
+      .on('broadcast', { event: 'round_score' }, (msg: any) => {
+        if (msg?.payload && msg.payload.roomCode === cleanId) {
+          const { roundOrder, playerSide, rawScore, timeMs } = msg.payload;
+          const current = getDuelRoomLocal(cleanId);
+          if (current) {
+            const updated = recordRoundScore(current, roundOrder, playerSide, rawScore, timeMs);
+            saveDuelRoomLocal(updated);
+            onUpdate(updated);
+            if (updated.status === 'ROUND_RESULT') {
+              broadcastDuelRoom(updated);
+            }
           }
         }
       })
@@ -571,44 +783,55 @@ export function subscribeToDuelRoom(
         if (msg?.payload && msg.payload.roomCode === cleanId) {
           const current = getDuelRoomLocal(cleanId);
           if (current) {
-            broadcastDuelRoom(current);
+            if (msg.payload.room) {
+              const merged = mergeDuelRooms(current, msg.payload.room);
+              saveDuelRoomLocal(merged);
+              onUpdate(merged);
+              broadcastDuelRoom(merged);
+            } else {
+              broadcastDuelRoom(current);
+            }
           }
         }
       })
-      .subscribe();
+      .subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          const current = getDuelRoomLocal(cleanId);
+          if (current && current.mode === 'online') {
+            try {
+              channel.send({
+                type: 'broadcast',
+                event: 'ping_room',
+                payload: { roomCode: cleanId, room: current },
+              });
+              channel.send({
+                type: 'broadcast',
+                event: 'room_state',
+                payload: current,
+              });
+            } catch {
+              // ignore
+            }
+          }
+        }
+      });
   } catch {
     // ignore
   }
 
-  // 3. Fallback polling & Host Heartbeat
+  // 3. Heartbeat & Active Polling Synchronization
   const pollTimer = setInterval(async () => {
     const local = getDuelRoomLocal(cleanId);
     if (local) {
       onUpdate(local);
-      // If waiting for opponent, broadcast heartbeat so any joining guest gets the room immediately
-      if (local.status === 'WAITING_FOR_OPPONENT') {
-        broadcastDuelRoom(local);
-      }
-    }
-    try {
-      const supabase = getSupabaseBrowserClient();
-      const { data } = await supabase
-        .from('duel_rooms')
-        .select('*')
-        .eq('room_code', cleanId)
-        .maybeSingle();
-
-      if (data && data.room_state) {
-        const remoteRoom = data.room_state as DuelRoomState;
-        if (!local || remoteRoom.updatedAt > local.updatedAt) {
-          saveDuelRoomLocal(remoteRoom);
-          onUpdate(remoteRoom);
+      if (local.mode === 'online') {
+        // Broadcast heartbeat if waiting for opponent OR if in live round waiting for opponent score
+        if (local.status === 'WAITING_FOR_OPPONENT' || local.status === 'PLAYING_ROUND') {
+          broadcastDuelRoom(local);
         }
       }
-    } catch {
-      // ignore
     }
-  }, 1500);
+  }, 1200);
 
   return () => {
     window.removeEventListener('fg:duel_update', handleLocalEvent);

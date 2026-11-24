@@ -19,7 +19,13 @@ import {
   setUserStreak,
   setUserDailyResult,
 } from '@/lib/storage-helpers';
-import { getDuelRoomLocal, recordRoundScore, broadcastDuelRoom } from '@/lib/duel/duel-service';
+import {
+  getDuelRoomLocal,
+  recordRoundScore,
+  broadcastDuelRoom,
+  broadcastRoundScore,
+  saveDuelRoomLocal,
+} from '@/lib/duel/duel-service';
 import type { PlayerSide } from '@funnygame/game-core';
 import {
   clientRegistry,
@@ -538,7 +544,9 @@ export default function PlayClient({ gameId }: PlayClientProps) {
             }
             const timeMs = Math.max(1000, submittedAt - startedAtRef.current);
             const updated = recordRoundScore(room, duelRound, duelPlayer, finalScore, timeMs);
+            saveDuelRoomLocal(updated);
             broadcastDuelRoom(updated);
+            broadcastRoundScore(duelRoomId, duelRound, duelPlayer, finalScore, timeMs);
           }
         }
       } catch (err) {

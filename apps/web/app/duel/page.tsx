@@ -20,6 +20,7 @@ import {
   advanceToNextRound,
   rematchDuelRoom,
   subscribeToDuelRoom,
+  broadcastDuelRoom,
   getDuelRoomLocal,
   normalizeRoomCode,
 } from '@/lib/duel/duel-service';
@@ -1049,6 +1050,17 @@ function DuelTournamentContent() {
               <p className="text-[11px] text-slate-400 mt-3">
                 متصل بالسيرفر • ستظهر مقارنة النتائج تلقائياً فور انتهائه.
               </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (room) {
+                    broadcastDuelRoom(room);
+                  }
+                }}
+                className="mt-3.5 px-4 py-2 bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/50 text-amber-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 mx-auto transition-all cursor-pointer shadow-md active:scale-95"
+              >
+                <span>تحديث ومزامنة فورية 🔄</span>
+              </button>
             </div>
           ) : (
             <>
