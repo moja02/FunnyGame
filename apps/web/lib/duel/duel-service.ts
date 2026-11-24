@@ -163,17 +163,17 @@ export async function joinDuelRoom(
     if (room.host.id === guest.id) {
       return room;
     }
-    if (room.guest && room.guest.id !== guest.id) {
+    if (room.status === 'WAITING_FOR_OPPONENT' || !room.guest || room.guest.id === guest.id) {
+      room.guest = guest;
+      if (room.status === 'WAITING_FOR_OPPONENT') {
+        room.status = 'DRAFTING';
+        room.draft.turnExpiresAt = Date.now() + 15000;
+      }
+      room.updatedAt = Date.now();
+      saveDuelRoomLocal(room);
+      broadcastDuelRoom(room);
       return room;
     }
-    room.guest = guest;
-    if (room.status === 'WAITING_FOR_OPPONENT') {
-      room.status = 'DRAFTING';
-      room.draft.turnExpiresAt = Date.now() + 15000;
-    }
-    room.updatedAt = Date.now();
-    saveDuelRoomLocal(room);
-    broadcastDuelRoom(room);
     return room;
   }
 
@@ -387,27 +387,36 @@ export function mergeDuelRooms(current: DuelRoomState, remote: DuelRoomState): D
   if (!current) return remote;
   if (!remote) return current;
 
-  // Status priority
-  const statusWeight: Record<DuelStatus, number> = {
-    WAITING_FOR_OPPONENT: 1,
-    DRAFTING: 2,
-    PLAYING_ROUND: 3,
-    ROUND_RESULT: 4,
-    COMPLETED: 5,
-  };
+  // 1. Rematch check:
+  // If one side has started a rematch (DRAFTING with no summary, newer timestamp than COMPLETED)
+  const isRemoteRematch =
+    remote.status === 'DRAFTING' &&
+    !remote.summary &&
+    (current.status === 'COMPLETED' ||
+      (current.rounds.some((r) => (r.hostTimeMs > 0 || r.guestTimeMs > 0)) &&
+        (remote.updatedAt || 0) > (current.updatedAt || 0)));
+
+  if (isRemoteRematch) {
+    return remote;
+  }
+
+  const isCurrentRematch =
+    current.status === 'DRAFTING' && !current.summary && remote.status === 'COMPLETED';
+  if (isCurrentRematch) {
+    return current;
+  }
 
   const guest = remote.guest || current.guest;
+  const matchSize = current.matchSize || remote.matchSize || 2;
 
-  // Draft info: keep highest turn or picks
+  // 2. Draft merging: keep highest picks or turn index
   const currentPicks = current.draft?.pickedGames || [];
   const remotePicks = remote.draft?.pickedGames || [];
   const pickedGames = remotePicks.length >= currentPicks.length ? remotePicks : currentPicks;
   const turnIndex = Math.max(current.draft?.turnIndex || 0, remote.draft?.turnIndex || 0);
+  const isDraftComplete = pickedGames.length >= matchSize;
 
-  const matchSize = current.matchSize || remote.matchSize || 2;
-  const currentRoundIndex = Math.max(current.currentRoundIndex || 0, remote.currentRoundIndex || 0);
-
-  // Merge each round's host and guest scores
+  // 3. Rounds score merging: keep the submitted score from whichever device has recorded it
   const mergedRounds: DuelRoundResult[] = [];
   for (let i = 0; i < matchSize; i++) {
     const curR = current.rounds?.[i];
@@ -416,8 +425,8 @@ export function mergeDuelRooms(current: DuelRoomState, remote: DuelRoomState): D
     if (!curR && !remR) continue;
     const baseR = curR || remR!;
 
-    const gameId = curR?.gameId || remR?.gameId || '';
-    const pickedBy = curR?.pickedBy || remR?.pickedBy || 'host';
+    const gameId = curR?.gameId || remR?.gameId || (pickedGames[i]?.gameId || '');
+    const pickedBy = curR?.pickedBy || remR?.pickedBy || (pickedGames[i]?.pickedBy || 'host');
     const seed = curR?.seed || remR?.seed || 1000;
 
     // Host submission
@@ -463,32 +472,40 @@ export function mergeDuelRooms(current: DuelRoomState, remote: DuelRoomState): D
     }
   }
 
-  // Determine merged status
-  let mergedStatus: DuelStatus =
-    (statusWeight[remote.status] || 0) > (statusWeight[current.status] || 0)
-      ? remote.status
-      : current.status;
+  // 4. Current round progression
+  const currentRoundIndex = Math.max(current.currentRoundIndex || 0, remote.currentRoundIndex || 0);
 
-  // Check if current round has both players finished
-  const curRound = mergedRounds[currentRoundIndex];
-  const curRoundBothDone =
-    curRound &&
-    ((curRound.hostTimeMs > 0 || curRound.hostRawScore > 0) &&
-     (curRound.guestTimeMs > 0 || curRound.guestRawScore > 0));
+  // 5. Determine active status based on game rules
+  let mergedStatus: DuelStatus;
 
-  if (curRoundBothDone && mergedStatus === 'PLAYING_ROUND') {
-    mergedStatus = 'ROUND_RESULT';
+  if (!guest) {
+    mergedStatus = 'WAITING_FOR_OPPONENT';
+  } else if (!isDraftComplete) {
+    mergedStatus = 'DRAFTING';
+  } else {
+    // Check if match was already completed
+    const hasEitherCompleted = current.status === 'COMPLETED' || remote.status === 'COMPLETED';
+
+    if (hasEitherCompleted) {
+      mergedStatus = 'COMPLETED';
+    } else {
+      // Evaluate current active round
+      const curRound = mergedRounds[currentRoundIndex];
+      const curRoundBothDone =
+        curRound &&
+        ((curRound.hostTimeMs > 0 || curRound.hostRawScore > 0) &&
+         (curRound.guestTimeMs > 0 || curRound.guestRawScore > 0));
+
+      if (curRoundBothDone) {
+        mergedStatus = 'ROUND_RESULT';
+      } else {
+        mergedStatus = 'PLAYING_ROUND';
+      }
+    }
   }
 
-  // Check if all rounds done
-  const allRoundsDone =
-    mergedRounds.length === matchSize &&
-    mergedRounds.every(
-      (r) => (r.hostTimeMs > 0 || r.hostRawScore > 0) && (r.guestTimeMs > 0 || r.guestRawScore > 0)
-    );
-
   let summary = current.summary || remote.summary;
-  if (allRoundsDone && (mergedStatus === 'COMPLETED' || currentRoundIndex + 1 >= matchSize && mergedStatus === 'ROUND_RESULT')) {
+  if (mergedStatus === 'COMPLETED' || (mergedStatus === 'ROUND_RESULT' && currentRoundIndex + 1 >= matchSize)) {
     summary = evaluateDuelMatch(matchSize, mergedRounds);
   }
 
@@ -587,8 +604,10 @@ export function rematchDuelRoom(room: DuelRoomState): DuelRoomState {
 export function saveDuelRoomLocal(room: DuelRoomState): void {
   if (typeof window === 'undefined') return;
   try {
+    const cleanId = normalizeRoomCode(room.roomId);
+    localStorage.setItem(`fg_duel_${cleanId}`, JSON.stringify(room));
     localStorage.setItem(`fg_duel_${room.roomId}`, JSON.stringify(room));
-    localStorage.setItem('fg_active_duel_id', room.roomId);
+    localStorage.setItem('fg_active_duel_id', cleanId);
   } catch (err) {
     console.warn('Duel save notice:', err);
   }
@@ -596,7 +615,11 @@ export function saveDuelRoomLocal(room: DuelRoomState): void {
 
 export function getDuelRoomLocal(roomId: string): DuelRoomState | null {
   if (typeof window === 'undefined') return null;
-  const raw = localStorage.getItem(`fg_duel_${roomId.toUpperCase()}`);
+  const cleanId = normalizeRoomCode(roomId);
+  const raw =
+    localStorage.getItem(`fg_duel_${cleanId}`) ||
+    localStorage.getItem(`fg_duel_${roomId.toUpperCase()}`) ||
+    localStorage.getItem(`fg_duel_${roomId}`);
   if (!raw) return null;
   try {
     return JSON.parse(raw);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { BottomNav } from '../components/BottomNav';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -22,6 +22,7 @@ import {
   subscribeToDuelRoom,
   broadcastDuelRoom,
   getDuelRoomLocal,
+  getActiveDuelId,
   normalizeRoomCode,
 } from '@/lib/duel/duel-service';
 
@@ -44,7 +45,6 @@ const TOURNAMENT_GAMES = [
 const AVATAR_OPTIONS = ['🦁', '🦅', '🐺', '⚡', '👑', '🎯', '🚀', '🔥'];
 
 function DuelTournamentContent() {
-  const router = useRouter();
   const { profile } = useAuth();
   const searchParams = useSearchParams();
 
@@ -69,8 +69,8 @@ function DuelTournamentContent() {
   const [timeLeft, setTimeLeft] = useState<number>(15);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-launch countdown for live round
-  const [autoLaunchCount, setAutoLaunchCount] = useState<number | null>(null);
+  // Viewed round tracker to allow players to read results at their own pace
+  const [viewedRoundIndex, setViewedRoundIndex] = useState<number>(0);
 
   // Player identity
   const currentPlayer: DuelPlayer = useMemo(
@@ -91,7 +91,7 @@ function DuelTournamentContent() {
   const isMyTurn = room?.status === 'DRAFTING' && room.draft.currentTurn === mySide;
   const canPick = isLocalMode ? true : isMyTurn;
 
-  // 1. Check URL for direct room invite (/duel/?room=LY-XXXX)
+  // 1. Check URL for direct room invite (/duel/?room=LY-XXXX) or restore active room
   useEffect(() => {
     const queryRoom = searchParams.get('room');
     if (queryRoom) {
@@ -129,6 +129,15 @@ function DuelTournamentContent() {
         .finally(() => {
           setIsJoining(false);
         });
+    } else {
+      // Check active local room if navigated from another page
+      const activeId = getActiveDuelId();
+      if (activeId) {
+        const local = getDuelRoomLocal(activeId);
+        if (local && local.status !== 'COMPLETED') {
+          setRoom(local);
+        }
+      }
     }
   }, [searchParams, currentPlayer, profile.isGuest]);
 
@@ -153,13 +162,14 @@ function DuelTournamentContent() {
       const sec = Math.ceil(remainingMs / 1000);
       setTimeLeft(sec);
 
-      // Auto-pick when timer hits 0
-      if (remainingMs <= 0 && isMyTurn) {
+      // Auto-pick when timer hits 0 (or 5s after if peer disconnected)
+      if (remainingMs <= 0 && (isMyTurn || remainingMs <= -5000)) {
+        const picker = isMyTurn ? mySide : room.draft.currentTurn;
         const pickedIds = new Set(room.draft.pickedGames.map((p: { gameId: string }) => p.gameId));
         const unpicked = TOURNAMENT_GAMES.filter((g) => !pickedIds.has(g.id));
         if (unpicked.length > 0) {
           const randomPick = unpicked[Math.floor(Math.random() * unpicked.length)]!;
-          const updated = pickDraftGame(room, randomPick.id, mySide);
+          const updated = pickDraftGame(room, randomPick.id, picker);
           setRoom(updated);
         }
       }
@@ -173,42 +183,25 @@ function DuelTournamentContent() {
     };
   }, [room, isMyTurn, mySide]);
 
-  // 4. Auto-launch countdown for live round (Online mode only)
+  // 4. Synchronize viewed round index
+  const mySubmittedOnCurrent = room && room.rounds[room.currentRoundIndex]
+    ? mySide === 'host'
+      ? (room.rounds[room.currentRoundIndex]?.hostTimeMs ?? 0) > 0 || (room.rounds[room.currentRoundIndex]?.hostRawScore ?? 0) > 0
+      : (room.rounds[room.currentRoundIndex]?.guestTimeMs ?? 0) > 0 || (room.rounds[room.currentRoundIndex]?.guestRawScore ?? 0) > 0
+    : false;
+
   useEffect(() => {
-    if (room?.status !== 'PLAYING_ROUND' || room.mode === 'local') {
-      setAutoLaunchCount(null);
-      return;
+    if (!room) return;
+    if (room.status === 'ROUND_RESULT') {
+      setViewedRoundIndex(room.currentRoundIndex);
+    } else if (room.status === 'PLAYING_ROUND') {
+      if (mySubmittedOnCurrent || room.currentRoundIndex === 0) {
+        setViewedRoundIndex(room.currentRoundIndex);
+      }
+    } else if (room.status === 'COMPLETED' || room.status === 'DRAFTING') {
+      setViewedRoundIndex(room.currentRoundIndex);
     }
-    const cur = room.rounds[room.currentRoundIndex];
-    if (!cur || !cur.gameId) return;
-
-    const mySubmitted = mySide === 'host'
-      ? cur.hostTimeMs > 0 || cur.hostRawScore > 0
-      : cur.guestTimeMs > 0 || cur.guestRawScore > 0;
-
-    if (mySubmitted) {
-      setAutoLaunchCount(null);
-      return;
-    }
-
-    // 3-second automatic countdown into game
-    setAutoLaunchCount(3);
-    const interval = setInterval(() => {
-      setAutoLaunchCount((prev) => {
-        if (prev === null) return null;
-        if (prev <= 1) {
-          clearInterval(interval);
-          router.push(
-            `/play/${cur.gameId}/?mode=duel&roomId=${room.roomId}&round=${cur.roundOrder}&seed=${cur.seed}&player=${mySide}`
-          );
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [room?.status, room?.mode, room?.currentRoundIndex, mySide, router]);
+  }, [room?.status, room?.currentRoundIndex, mySubmittedOnCurrent]);
 
   // Action: Create Room
   const handleCreateRoom = () => {
@@ -324,6 +317,45 @@ function DuelTournamentContent() {
     setRoom(updated);
   };
 
+  // Action: Leave Room Cleanly
+  const handleLeaveRoom = () => {
+    if (typeof window !== 'undefined') {
+      if (window.confirm('هل تريد مغادرة غرفة التحدي؟ ستفقد التقدم في هذه المباراة.')) {
+        localStorage.removeItem('fg_active_duel_id');
+        setRoom(null);
+      }
+    } else {
+      setRoom(null);
+    }
+  };
+
+  // Action: Remind opponent via Share/WhatsApp
+  const handleRemindOpponent = async () => {
+    const url = getInviteUrl();
+    const text = `أنهيت جولتي في بطولة التحدي الثنائي ومستنيك تكمل جولتك! ⚔️🔥\n${url}`;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'تحدي ثنائي في FunnyGame! ⚔️',
+          text,
+          url,
+        });
+        return;
+      } catch {
+        // Fallback
+      }
+    }
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      }
+    } catch {
+      // ignore
+    }
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
   // Action: Next Round
   const handleNextRound = () => {
     if (!room) return;
@@ -334,6 +366,7 @@ function DuelTournamentContent() {
   // Action: Rematch
   const handleRematch = () => {
     if (!room) return;
+    setViewedRoundIndex(0);
     const updated = rematchDuelRoom(room);
     setRoom(updated);
   };
@@ -701,8 +734,16 @@ function DuelTournamentContent() {
               الجولة {currentRoundNum} من {room.matchSize}
             </span>
           </div>
-          <div className="text-xs font-mono font-black text-amber-300">
-            الغرفة: {room.roomId}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono font-black text-amber-300">
+              الغرفة: {room.roomId}
+            </span>
+            <button
+              onClick={handleLeaveRoom}
+              className="text-xs text-slate-400 hover:text-white underline cursor-pointer"
+            >
+              مغادرة ✖
+            </button>
           </div>
         </div>
 
@@ -1021,6 +1062,11 @@ function DuelTournamentContent() {
       : 0;
 
     const opponentName = isHost ? (room.guest?.nickname || 'الخصم') : room.host.nickname;
+    const opponentSubmitted = curRound
+      ? mySide === 'host'
+        ? (curRound.guestTimeMs ?? 0) > 0 || (curRound.guestRawScore ?? 0) > 0
+        : (curRound.hostTimeMs ?? 0) > 0 || (curRound.hostRawScore ?? 0) > 0
+      : false;
 
     return (
       <main className="flex-1 flex flex-col p-4 select-none pb-24 max-w-[480px] w-full mx-auto justify-between min-h-screen">
@@ -1030,7 +1076,15 @@ function DuelTournamentContent() {
             <span className="text-xs font-black text-amber-300">
               الجولة {room.currentRoundIndex + 1} من {room.matchSize}
             </span>
-            <span className="text-xs text-slate-400 font-mono">الغرفة: {room.roomId}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-mono">الغرفة: {room.roomId}</span>
+              <button
+                onClick={handleLeaveRoom}
+                className="text-xs text-slate-400 hover:text-white underline cursor-pointer"
+              >
+                مغادرة ✖
+              </button>
+            </div>
           </div>
 
           {/* If current player already finished their round, show waiting for opponent */}
@@ -1050,21 +1104,31 @@ function DuelTournamentContent() {
               <p className="text-[11px] text-slate-400 mt-3">
                 متصل بالسيرفر • ستظهر مقارنة النتائج تلقائياً فور انتهائه.
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  if (room) {
-                    broadcastDuelRoom(room);
-                  }
-                }}
-                className="mt-3.5 px-4 py-2 bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/50 text-amber-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 mx-auto transition-all cursor-pointer shadow-md active:scale-95"
-              >
-                <span>تحديث ومزامنة فورية 🔄</span>
-              </button>
+              <div className="flex flex-col gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (room) {
+                      broadcastDuelRoom(room);
+                    }
+                  }}
+                  className="w-full py-2.5 bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/50 text-amber-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-95"
+                >
+                  <span>تحديث ومزامنة فورية 🔄</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemindOpponent}
+                  className="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-300 hover:text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <span>📲</span>
+                  <span>{isCopied ? 'تم نسخ رسالة ورابط التذكير! ✅' : 'تذكير الخصم عبر واتساب / مشاركة'}</span>
+                </button>
+              </div>
             </div>
           ) : (
             <>
-              {/* Round Card & Auto Launcher */}
+              {/* Round Card & Manual Launcher */}
               <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-950 border-2 border-amber-400/60 shadow-2xl text-center mb-6">
                 <div className="text-5xl mb-3 animate-bounce">{game?.icon || '🎮'}</div>
                 <div className="text-[10px] font-black text-amber-300 uppercase tracking-widest mb-1">
@@ -1073,9 +1137,14 @@ function DuelTournamentContent() {
                 <h2 className="text-2xl font-black text-white mb-1">{game?.title}</h2>
                 <p className="text-xs text-slate-300 mb-4">{game?.ability}</p>
 
-                {autoLaunchCount !== null && autoLaunchCount > 0 && (
-                  <div className="mb-4 p-2.5 rounded-xl bg-amber-400/20 border border-amber-400/40 text-amber-300 font-black text-xs animate-pulse">
-                    ⚡ الانطلاق التلقائي المباشر خلال {autoLaunchCount} ثوانٍ...
+                {opponentSubmitted ? (
+                  <div className="mb-4 p-3 rounded-2xl bg-amber-400/20 border border-amber-400/50 text-amber-300 font-black text-xs flex items-center justify-center gap-2 animate-pulse">
+                    <span>⚡</span>
+                    <span>{opponentName} أنهى دوره في هذه الجولة بالفعل وينتظر نتيجتك!</span>
+                  </div>
+                ) : (
+                  <div className="mb-4 p-2.5 rounded-xl bg-slate-950/70 border border-white/10 text-slate-300 text-xs leading-relaxed">
+                    اضغط للدخول ولعب الجولة عندما تكون جاهزاً. كل لاعب يلعب بشكل مستقل وسيقارن النظام النتائج فور انتهائكما.
                   </div>
                 )}
 
@@ -1114,10 +1183,19 @@ function DuelTournamentContent() {
   // -------------------------------------------------------------
   // VIEW: ROUND RESULT MODAL / TRANSITION
   // -------------------------------------------------------------
-  if (room.status === 'ROUND_RESULT') {
-    const curRound = room.rounds[room.currentRoundIndex];
+  const isViewingPreviousRoundResult =
+    room.mode === 'online' &&
+    viewedRoundIndex < room.currentRoundIndex &&
+    (room.rounds[viewedRoundIndex]?.hostTimeMs ?? 0) > 0 &&
+    (room.rounds[viewedRoundIndex]?.guestTimeMs ?? 0) > 0;
+
+  if (room.status === 'ROUND_RESULT' || isViewingPreviousRoundResult) {
+    const roundIdxToDisplay = isViewingPreviousRoundResult ? viewedRoundIndex : room.currentRoundIndex;
+    const curRound = room.rounds[roundIdxToDisplay];
     const game = TOURNAMENT_GAMES.find((g) => g.id === curRound?.gameId);
-    const isFinalRound = room.currentRoundIndex + 1 >= room.matchSize;
+    const isFinalRound = roundIdxToDisplay + 1 >= room.matchSize;
+    const opponentAdvanced = isViewingPreviousRoundResult || (room.currentRoundIndex > roundIdxToDisplay);
+    const opponentName = isHost ? (room.guest?.nickname || 'الخصم') : room.host.nickname;
 
     const hostTotalNorm = curRound ? curRound.hostNormScore + curRound.hostBonusScore : 0;
     const guestTotalNorm = curRound ? curRound.guestNormScore + curRound.guestBonusScore : 0;
@@ -1128,9 +1206,17 @@ function DuelTournamentContent() {
           {/* Header */}
           <div className="flex items-center justify-between py-2 border-b border-white/10 mb-4">
             <span className="text-xs font-black text-amber-300">
-              نتيجة الجولة {room.currentRoundIndex + 1} • {game?.title}
+              نتيجة الجولة {roundIdxToDisplay + 1} • {game?.title}
             </span>
-            <span className="text-xs text-slate-400 font-mono">الغرفة: {room.roomId}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-mono">الغرفة: {room.roomId}</span>
+              <button
+                onClick={handleLeaveRoom}
+                className="text-xs text-slate-400 hover:text-white underline cursor-pointer"
+              >
+                مغادرة ✖
+              </button>
+            </div>
           </div>
 
           {/* Comparative Head-to-Head Card */}
@@ -1207,13 +1293,32 @@ function DuelTournamentContent() {
             </div>
           )}
 
+          {/* Opponent advanced badge */}
+          {opponentAdvanced && (
+            <div className="mb-3 p-2.5 rounded-xl bg-amber-400/20 border border-amber-400/40 text-amber-300 font-bold text-xs text-center flex items-center justify-center gap-2 animate-pulse">
+              <span>⚡</span>
+              <span>{opponentName} جاهز وانتقل للجولة التالية ويستعد للعب!</span>
+            </div>
+          )}
+
           {/* Action: Next Round or Podium */}
           <button
             type="button"
-            onClick={handleNextRound}
+            onClick={() => {
+              if (isViewingPreviousRoundResult) {
+                setViewedRoundIndex(room.currentRoundIndex);
+              } else {
+                setViewedRoundIndex(room.currentRoundIndex + 1);
+                handleNextRound();
+              }
+            }}
             className="w-full py-3.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>{isFinalRound ? 'عرض التتويج النهائي والكأس 🏆' : 'الانتقال للجولة التالية ◀'}</span>
+            <span>
+              {isFinalRound
+                ? 'عرض التتويج النهائي والكأس 🏆'
+                : `الانتقال للجولة التالية (${roundIdxToDisplay + 2}) ◀`}
+            </span>
           </button>
         </div>
 
@@ -1327,7 +1432,12 @@ function DuelTournamentContent() {
             </button>
             <button
               type="button"
-              onClick={() => setRoom(null)}
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  localStorage.removeItem('fg_active_duel_id');
+                }
+                setRoom(null);
+              }}
               className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-white/10 transition-all cursor-pointer"
             >
               العودة للوبي التحديات 🏠

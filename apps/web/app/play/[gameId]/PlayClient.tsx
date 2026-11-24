@@ -540,6 +540,11 @@ export default function PlayClient({ gameId }: PlayClientProps) {
                 duelPlayer = 'host';
               } else if (room.guest?.id === profile.id) {
                 duelPlayer = 'guest';
+              } else {
+                const pParam = sp?.get('player') as PlayerSide;
+                if (pParam === 'host' || pParam === 'guest') {
+                  duelPlayer = pParam;
+                }
               }
             }
             const timeMs = Math.max(1000, submittedAt - startedAtRef.current);
