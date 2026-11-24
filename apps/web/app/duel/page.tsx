@@ -197,10 +197,8 @@ function DuelTournamentContent() {
         if (prev === null) return null;
         if (prev <= 1) {
           clearInterval(interval);
-          const path = typeof window !== 'undefined' ? window.location.pathname : '';
-          const basePrefix = path.includes('/FunnyGame') ? '/FunnyGame' : '';
           router.push(
-            `${basePrefix}/play/${cur.gameId}?mode=duel&roomId=${room.roomId}&round=${cur.roundOrder}&seed=${cur.seed}&player=${mySide}`
+            `/play/${cur.gameId}/?mode=duel&roomId=${room.roomId}&round=${cur.roundOrder}&seed=${cur.seed}&player=${mySide}`
           );
           return 0;
         }
@@ -868,8 +866,6 @@ function DuelTournamentContent() {
     const curRound = room.rounds[room.currentRoundIndex];
     const game = TOURNAMENT_GAMES.find((g) => g.id === curRound?.gameId);
     const pickerName = curRound?.pickedBy === 'host' ? room.host.nickname : (room.guest?.nickname || 'الخصم');
-    const path = typeof window !== 'undefined' ? window.location.pathname : '';
-    const basePrefix = path.includes('/FunnyGame') ? '/FunnyGame' : '';
 
     // ==========================================
     // LOCAL CHALLENGE: TRUE PASS & PLAY FLOW
@@ -881,7 +877,7 @@ function DuelTournamentContent() {
       // STEP 2: Player 1 has played, Player 2 has NOT yet -> Handover Screen!
       if (hasHostPlayed && !hasGuestPlayed) {
         const p2PlayUrl = curRound
-          ? `${basePrefix}/play/${curRound.gameId}?mode=duel&roomId=${room.roomId}&round=${curRound.roundOrder}&seed=${curRound.seed}&player=guest`
+          ? `/play/${curRound.gameId}/?mode=duel&roomId=${room.roomId}&round=${curRound.roundOrder}&seed=${curRound.seed}&player=guest`
           : '';
 
         return (
@@ -929,14 +925,15 @@ function DuelTournamentContent() {
               </div>
 
               {/* Action Button: Start Player 2 turn */}
-              <button
-                type="button"
-                onClick={() => router.push(p2PlayUrl)}
-                className="w-full py-4 bg-gradient-to-r from-rose-500 via-rose-600 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-black text-base rounded-2xl shadow-xl active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>جاهز يا {room.guest?.nickname || 'اللاعب 2'} 🔴! ابدأ التحدي</span>
-                <span className="text-lg">⚡</span>
-              </button>
+              {p2PlayUrl ? (
+                <Link
+                  href={p2PlayUrl}
+                  className="w-full py-4 bg-gradient-to-r from-rose-500 via-rose-600 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-black text-base rounded-2xl shadow-xl active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>جاهز يا {room.guest?.nickname || 'اللاعب 2'} 🔴! ابدأ التحدي</span>
+                  <span className="text-lg">⚡</span>
+                </Link>
+              ) : null}
             </div>
 
             <BottomNav />
@@ -946,7 +943,7 @@ function DuelTournamentContent() {
 
       // STEP 1: Neither player has played yet (Player 1's turn)
       const p1PlayUrl = curRound
-        ? `${basePrefix}/play/${curRound.gameId}?mode=duel&roomId=${room.roomId}&round=${curRound.roundOrder}&seed=${curRound.seed}&player=host`
+        ? `/play/${curRound.gameId}/?mode=duel&roomId=${room.roomId}&round=${curRound.roundOrder}&seed=${curRound.seed}&player=host`
         : '';
 
       return (
@@ -987,14 +984,15 @@ function DuelTournamentContent() {
             </div>
 
             {/* Action Button: Start Player 1 turn */}
-            <button
-              type="button"
-              onClick={() => router.push(p1PlayUrl)}
-              className="w-full py-4 bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-black text-base rounded-2xl shadow-xl active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span>ابدأ دور {room.host.nickname} 🔵</span>
-              <span className="text-lg">⚡</span>
-            </button>
+            {p1PlayUrl ? (
+              <Link
+                href={p1PlayUrl}
+                className="w-full py-4 bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-black text-base rounded-2xl shadow-xl active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>ابدأ دور {room.host.nickname} 🔵</span>
+                <span className="text-lg">⚡</span>
+              </Link>
+            ) : null}
           </div>
 
           <BottomNav />
@@ -1006,7 +1004,7 @@ function DuelTournamentContent() {
     // ONLINE CHALLENGE: SIMULTANEOUS RUN
     // ==========================================
     const targetPlayUrl = curRound
-      ? `${basePrefix}/play/${curRound.gameId}?mode=duel&roomId=${room.roomId}&round=${curRound.roundOrder}&seed=${curRound.seed}&player=${mySide}`
+      ? `/play/${curRound.gameId}/?mode=duel&roomId=${room.roomId}&round=${curRound.roundOrder}&seed=${curRound.seed}&player=${mySide}`
       : '';
 
     const myScoreSubmitted = curRound
@@ -1084,14 +1082,13 @@ function DuelTournamentContent() {
 
               {/* Direct Launch Button */}
               {targetPlayUrl && (
-                <button
-                  type="button"
-                  onClick={() => router.push(targetPlayUrl)}
+                <Link
+                  href={targetPlayUrl}
                   className="w-full py-4 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl active:scale-98 transition-all flex items-center justify-center gap-2 mb-4 cursor-pointer"
                 >
                   <span>خوض الجولة بالبذرة الموحدة ⚡</span>
                   <span>◀</span>
-                </button>
+                </Link>
               )}
             </>
           )}

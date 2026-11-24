@@ -1045,9 +1045,7 @@ export default function PlayClient({ gameId }: PlayClientProps) {
                 type="button"
                 onClick={() => {
                   if (typeof window !== 'undefined' && window.confirm('هل تريد الانسحاب والعودة لغرفة التحدي؟')) {
-                    const path = window.location.pathname;
-                    const basePrefix = path.includes('/FunnyGame') ? '/FunnyGame' : '';
-                    router.push(`${basePrefix}/duel/?room=${duelRoomId}`);
+                    router.push(`/duel/?room=${duelRoomId}`);
                   }
                 }}
                 className="text-[10px] text-rose-400 hover:text-rose-300 underline cursor-pointer"
@@ -1216,18 +1214,13 @@ export default function PlayClient({ gameId }: PlayClientProps) {
               <p className="text-xs text-slate-300 mb-6 leading-relaxed">
                 تم تسجيل نتيجتك ونقلها للمقارنة وحساب فارق النقاط مع الخصم.
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  const path = typeof window !== 'undefined' ? window.location.pathname : '';
-                  const basePrefix = path.includes('/FunnyGame') ? '/FunnyGame' : '';
-                  router.push(`${basePrefix}/duel/?room=${duelRoomId}`);
-                }}
+              <Link
+                href={`/duel/?room=${duelRoomId}`}
                 className="w-full py-3.5 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>العودة لنتائج الجولة ⚔️</span>
                 <span>◀</span>
-              </button>
+              </Link>
             </div>
           ) : (
             <ResultScreen
